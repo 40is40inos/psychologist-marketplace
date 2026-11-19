@@ -7,6 +7,8 @@ import { isLocale, locales, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { fill, formatPrice } from "@/lib/format";
 import { getCities } from "@/lib/public-data";
+import { getAllLabels, getTaxonomy } from "@/lib/taxonomy-data";
+import { logSearch, track } from "@/lib/analytics";
 import { activeFilterCount, filtersToParams, ONLINE, parseFilters, searchPsychologists } from "@/lib/search";
 import { SearchForm } from "@/components/search-form";
 import { FilterPanel } from "@/components/search/filter-panel";
@@ -55,8 +57,10 @@ async function Results({
   const sp = await searchParams;
   const filters = parseFilters(sp);
   const view = sp.view === "map" ? "map" : "list";
-  const [allDicts, cities] = await Promise.all([Promise.all(locales.map((l) => getDictionary(l))), getCities(locale)]);
-  const results = await searchPsychologists(filters, locale, allDicts, dict.titles);
+  const [concernLabels, cities, taxonomy] = await Promise.all([getAllLabels(), getCities(locale), getTaxonomy(locale)]);
+  const results = await searchPsychologists(filters, locale, concernLabels, dict.titles);
+  track(results.map((r) => r.id), "searchAppearances");
+  logSearch(filters.q, { ...filters, q: null, sort: null }, results.length, locale);
 
   const params = filtersToParams(filters);
   const base = `/${locale}/psychologists`;
@@ -84,7 +88,7 @@ async function Results({
         {cityName ? fill(dict.results.titleIn, { city: cityName }) : dict.results.title}
       </h1>
       <div className="mt-5">
-        <SearchForm locale={locale} dict={dict} cities={cities} values={filters} keep={params} />
+        <SearchForm locale={locale} dict={dict} cities={cities} languages={taxonomy.languages} values={filters} keep={params} />
       </div>
 
       <div className="mt-8 grid grid-cols-[minmax(0,1fr)] gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
@@ -97,12 +101,12 @@ async function Results({
               {count > 0 && <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-ink">{count}</span>}
             </summary>
             <div className="border-t border-border p-4">
-              <FilterPanel locale={locale} dict={dict} filters={filters} view={view} />
+              <FilterPanel locale={locale} dict={dict} filters={filters} view={view} taxonomy={taxonomy} />
             </div>
           </details>
           <div className="sticky top-20 hidden max-h-[calc(100vh-6rem)] overflow-y-auto rounded-2xl border border-border bg-surface p-5 lg:block">
             <h2 className="mb-4 text-lg font-semibold text-ink">{dict.filters.title}</h2>
-            <FilterPanel locale={locale} dict={dict} filters={filters} view={view} />
+            <FilterPanel locale={locale} dict={dict} filters={filters} view={view} taxonomy={taxonomy} />
           </div>
         </aside>
 
@@ -143,7 +147,7 @@ async function Results({
             <ul className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {results.map((card) => (
                 <li key={card.slug}>
-                  <PsychologistCard card={card} locale={locale} dict={dict} />
+                  <PsychologistCard card={card} locale={locale} dict={dict} labels={taxonomy.labels} />
                 </li>
               ))}
             </ul>

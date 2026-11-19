@@ -6,11 +6,9 @@ import { earliestSlots } from "@/lib/availability";
 import { localDateKey, zonedToUtc } from "@/lib/time";
 import { isSessionType, type SessionType } from "@/domain/session-types";
 import {
-  APPROACHES,
-  CLIENT_TYPES,
-  CONCERNS,
   GENDERS,
-  SESSION_LANGUAGES,
+  LANGUAGE_RE,
+  cleanSlugs,
   pickValid,
   type Approach,
   type ClientType,
@@ -66,12 +64,12 @@ export function parseFilters(params: RawParams): SearchFilters {
   const sort = one(params.sort);
   return {
     q: one(params.q || params.concern).slice(0, 80),
-    concerns: pickValid(all(params.concerns), CONCERNS),
-    approaches: pickValid(all(params.approaches), APPROACHES),
-    clientTypes: pickValid(all(params.for), CLIENT_TYPES),
+    concerns: cleanSlugs(all(params.concerns)),
+    approaches: cleanSlugs(all(params.approaches)),
+    clientTypes: cleanSlugs(all(params.for)) as ClientType[],
     format: isSessionType(format) ? format : "",
     location: /^[a-z0-9-]{2,40}$/.test(location) ? location : "",
-    language: pickValid([one(params.language)], SESSION_LANGUAGES)[0] ?? "",
+    language: LANGUAGE_RE.test(one(params.language)) ? one(params.language) : "",
     gender: pickValid([one(params.gender)], GENDERS)[0] ?? "",
     priceMin: euros(one(params.min)),
     priceMax: euros(one(params.max)),
@@ -109,15 +107,15 @@ export function activeFilterCount(f: SearchFilters): number {
 }
 
 /** Map free text ("άγχος", "panic attacks") to concern slugs via labels in every language. */
-export function concernsFromText(q: string, dicts: Dictionary[]): Concern[] {
+export function concernsFromText(q: string, labels: Record<string, string[]>): Concern[] {
   const query = normalize(q);
   if (query.length < 3) return [];
-  return CONCERNS.filter((c) =>
-    dicts.some((d) => {
-      const label = normalize(d.taxonomy.concerns[c]);
-      return label.includes(query) || query.includes(label);
-    }),
-  );
+  return Object.entries(labels)
+    .filter(([, ls]) => ls.some((l) => {
+      const label = normalize(l);
+      return label.length > 0 && (label.includes(query) || query.includes(label));
+    }))
+    .map(([slug]) => slug);
 }
 
 export interface PsychologistCard {
@@ -138,6 +136,8 @@ export interface PsychologistCard {
   nextAvailable: Date | null;
   /** How many of the requested concerns this person treats. */
   matchedConcerns: number;
+  /** Plan includes "featured" placement. */
+  featured: boolean;
 }
 
 const cardSelect = {
@@ -158,11 +158,18 @@ const cardSelect = {
     select: { latitude: true, longitude: true, city: { select: { slug: true, translations: { select: { locale: true, name: true } } } } },
   },
   specialties: { select: { specialty: { select: { slug: true, kind: true } } } },
+  plan: { select: { active: true, features: true } },
 } satisfies Prisma.PsychologistProfileSelect;
 
 type Row = Prisma.PsychologistProfileGetPayload<{ select: typeof cardSelect }>;
 
-export function toCard(row: Row, locale: Locale, titles: Dictionary["titles"], wanted: Concern[] = []): Omit<PsychologistCard, "nextAvailable"> {
+export function toCard(
+  row: Omit<Row, "plan"> & { plan?: Row["plan"] },
+  locale: Locale,
+  titles: Dictionary["titles"],
+  wanted: Concern[] = [],
+  defaultFeatures: string[] = [],
+): Omit<PsychologistCard, "nextAvailable"> {
   const tr = row.translations.find((t) => t.locale === locale) ?? row.translations[0];
   const office = row.offices[0];
   const concerns = row.specialties.filter((s) => s.specialty.kind === "concern").map((s) => s.specialty.slug as Concern);
@@ -182,6 +189,7 @@ export function toCard(row: Row, locale: Locale, titles: Dictionary["titles"], w
     offerings: row.offerings,
     introCall: row.introCallEnabled,
     matchedConcerns: wanted.filter((c) => concerns.includes(c)).length,
+    featured: (row.plan?.active ? row.plan.features : defaultFeatures).includes("featured"),
   };
 }
 
@@ -195,12 +203,12 @@ export const publicProfileWhere: Prisma.PsychologistProfileWhereInput = {
 export async function searchPsychologists(
   f: SearchFilters,
   locale: Locale,
-  dicts: Dictionary[],
+  concernLabels: Record<string, string[]>,
   titles: Dictionary["titles"],
 ): Promise<PsychologistCard[]> {
   // Free text adds concern matches; it never narrows to zero on its own if
   // the text also appears in a headline.
-  const textConcerns = f.q ? concernsFromText(f.q, dicts) : [];
+  const textConcerns = f.q ? concernsFromText(f.q, concernLabels) : [];
   const wantedConcerns = [...new Set([...f.concerns, ...textConcerns])];
 
   const offeringFilter: Prisma.SessionOfferingWhereInput = {
@@ -237,6 +245,7 @@ export async function searchPsychologists(
   }
 
   const rows = await db.psychologistProfile.findMany({ where: { AND: and }, select: cardSelect, take: 100 });
+  const defaultPlan = await db.plan.findFirst({ where: { isDefault: true, active: true }, select: { features: true } });
 
   // Availability: earliest slot from now, or from the chosen date.
   const [y, m, d] = f.date ? f.date.split("-").map(Number) : [];
@@ -254,7 +263,7 @@ export async function searchPsychologists(
 
   const now = Date.now();
   const limitMs = { today: 0, week: 7, "2weeks": 14 }[f.availability as "today"] ?? null;
-  let cards = rows.map((r) => ({ ...toCard(r, locale, titles, wantedConcerns), nextAvailable: earliest.get(r.id) ?? null }));
+  let cards = rows.map((r) => ({ ...toCard(r, locale, titles, wantedConcerns, defaultPlan?.features), nextAvailable: earliest.get(r.id) ?? null }));
 
   if (f.date) cards = cards.filter((c) => c.nextAvailable && localDateKey(c.nextAvailable) === f.date);
   if (f.availability === "today") {
@@ -267,7 +276,8 @@ export async function searchPsychologists(
   const minPrice = (c: PsychologistCard) => Math.min(...c.offerings.filter((o) => !f.format || o.type === f.format).map((o) => o.priceCents));
   const soon = (c: PsychologistCard) => (c.nextAvailable ? +c.nextAvailable : Infinity);
   const sorters: Record<SearchFilters["sort"], (a: PsychologistCard, b: PsychologistCard) => number> = {
-    relevance: (a, b) => b.matchedConcerns - a.matchedConcerns || soon(a) - soon(b),
+    // Featured plans get a boost among equally relevant results.
+    relevance: (a, b) => b.matchedConcerns - a.matchedConcerns || Number(b.featured) - Number(a.featured) || soon(a) - soon(b),
     earliest: (a, b) => soon(a) - soon(b),
     price_low: (a, b) => minPrice(a) - minPrice(b),
     price_high: (a, b) => minPrice(b) - minPrice(a),

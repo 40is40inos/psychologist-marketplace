@@ -14,9 +14,10 @@ export interface VerificationItem {
   licenseNumber: string;
   licensingAuthority: string;
   submitted: string;
+  documents: { id: string; label: string }[];
 }
 
-export function VerificationCard({ item, t }: { item: VerificationItem; t: Dictionary["admin"]["verifications"] }) {
+export function VerificationCard({ item, t, docs }: { item: VerificationItem; t: Dictionary["admin"]["verifications"]; docs: Dictionary["adminDocs"] }) {
   const [state, action] = useActionState<AdminActionState, FormData>(decideVerification, {});
   const reasonId = `reason-${item.profileId}`;
 
@@ -39,6 +40,21 @@ export function VerificationCard({ item, t }: { item: VerificationItem; t: Dicti
           <dd className="font-medium text-ink">{item.licensingAuthority}</dd>
         </div>
       </dl>
+
+      <div className="mt-3 text-sm">
+        <p className="font-medium text-ink">{docs.documents}</p>
+        {item.documents.length === 0 ? (
+          <p className="text-muted">{docs.noDocuments}</p>
+        ) : (
+          <ul className="mt-1 space-y-1">
+            {item.documents.map((d) => (
+              <li key={d.id}>
+                <a href={`/api/documents/${d.id}`} target="_blank" rel="noreferrer" className="text-primary underline">{d.label}</a>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <form action={action} className="mt-4 space-y-3">
         <input type="hidden" name="profileId" value={item.profileId} />

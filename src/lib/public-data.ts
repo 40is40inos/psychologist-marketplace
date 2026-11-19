@@ -2,7 +2,8 @@ import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { db } from "@/lib/db";
 import { SESSION_TYPES, type SessionType } from "@/domain/session-types";
-import { locales, type Locale } from "@/i18n/config";
+import type { Locale } from "@/i18n/config";
+import { getAllLabels } from "@/lib/taxonomy-data";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { publicProfileWhere, searchPsychologists, type PsychologistCard } from "@/lib/search";
 
@@ -38,12 +39,12 @@ export async function getLowestPrices(): Promise<Record<SessionType, number | nu
 export async function getFeatured(locale: Locale): Promise<PsychologistCard[]> {
   "use cache";
   cacheLife("minutes");
-  const dicts = await Promise.all(locales.map((l) => getDictionary(l)));
-  const titles = dicts[locales.indexOf(locale)].titles;
+  const [dict, labels] = await Promise.all([getDictionary(locale), getAllLabels()]);
+  const titles = dict.titles;
   const results = await searchPsychologists(
     { q: "", concerns: [], approaches: [], clientTypes: [], format: "", location: "", language: "", gender: "", priceMin: null, priceMax: null, availability: "week", date: "", sort: "earliest" },
     locale,
-    dicts,
+    labels,
     titles,
   );
   return results.slice(0, 3);

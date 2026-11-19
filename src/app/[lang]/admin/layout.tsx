@@ -28,7 +28,13 @@ export default async function AdminLayout({ children, params }: LayoutProps<"/[l
             { href: base, label: dict.admin.nav.overview },
             { href: `${base}/verifications`, label: dict.admin.nav.verifications },
             { href: `${base}/users`, label: dict.admin.nav.users },
+            { href: `${base}/bookings`, label: dict.adminX.nav.bookings },
             { href: `${base}/disputes`, label: dict.admin.nav.disputes },
+            { href: `${base}/reviews`, label: dict.adminX.nav.reviews },
+            { href: `${base}/taxonomy`, label: dict.adminX.nav.taxonomy },
+            { href: `${base}/content`, label: dict.adminX.nav.content },
+            { href: `${base}/analytics`, label: dict.adminX.nav.analytics },
+            { href: `${base}/plans`, label: dict.adminPlans.title },
           ]}
         />
       </div>

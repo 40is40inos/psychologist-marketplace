@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SESSION_TYPES } from "@/domain/session-types";
-import { APPROACHES, CLIENT_TYPES, CONCERNS, GENDERS, SESSION_LANGUAGES } from "@/domain/taxonomy";
+import { GENDERS } from "@/domain/taxonomy";
+import type { Taxonomy } from "@/lib/taxonomy-data";
 import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/get-dictionary";
 import type { SearchFilters } from "@/lib/search";
@@ -17,11 +18,13 @@ export function FilterPanel({
   dict,
   filters: f,
   view,
+  taxonomy: tx,
 }: {
   locale: Locale;
   dict: Dictionary;
   filters: SearchFilters;
   view: "list" | "map";
+  taxonomy: Taxonomy;
 }) {
   const t = dict.filters;
   const tax = dict.taxonomy;
@@ -42,21 +45,21 @@ export function FilterPanel({
         ))}
       </Group>
 
-      <Group title={t.concerns} collapsible={CONCERNS.length > 6} moreLabel={fillCount(t.showMore, CONCERNS.length)}>
-        {CONCERNS.map((c, i) => (
-          <Check key={c} name="concerns" value={c} checked={f.concerns.includes(c)} label={tax.concerns[c]} extra={i >= 6 && !f.concerns.includes(c)} />
+      <Group title={t.concerns} collapsible={tx.concerns.length > 6} moreLabel={fillCount(t.showMore, tx.concerns.length)}>
+        {tx.concerns.map((c, i) => (
+          <Check key={c.slug} name="concerns" value={c.slug} checked={f.concerns.includes(c.slug)} label={c.label} extra={i >= 6 && !f.concerns.includes(c.slug)} />
         ))}
       </Group>
 
       <Group title={t.approaches}>
-        {APPROACHES.map((a) => (
-          <Check key={a} name="approaches" value={a} checked={f.approaches.includes(a)} label={tax.approaches[a]} />
+        {tx.approaches.map((a) => (
+          <Check key={a.slug} name="approaches" value={a.slug} checked={f.approaches.includes(a.slug)} label={a.label} />
         ))}
       </Group>
 
       <Group title={t.clientTypes}>
-        {CLIENT_TYPES.map((c) => (
-          <Check key={c} name="for" value={c} checked={f.clientTypes.includes(c)} label={tax.clientTypes[c]} />
+        {tx.clientTypes.map((c) => (
+          <Check key={c.slug} name="for" value={c.slug} checked={(f.clientTypes as string[]).includes(c.slug)} label={c.label} />
         ))}
       </Group>
 
@@ -76,8 +79,8 @@ export function FilterPanel({
 
       <Group title={t.language}>
         <Radio name="language" value="" checked={!f.language} label={t.anyLanguage} />
-        {SESSION_LANGUAGES.map((l) => (
-          <Radio key={l} name="language" value={l} checked={f.language === l} label={dict.languages[l]} />
+        {tx.languages.map((l) => (
+          <Radio key={l.slug} name="language" value={l.slug} checked={f.language === l.slug} label={l.label} />
         ))}
       </Group>
 

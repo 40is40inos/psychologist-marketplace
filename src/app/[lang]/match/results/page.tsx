@@ -7,6 +7,7 @@ import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { fill, formatList, formatPrice, formatShortDate } from "@/lib/format";
 import { findMatches, parseAnswers, type Reason } from "@/lib/matching";
+import { getTaxonomy } from "@/lib/taxonomy-data";
 import { PsychologistCard } from "@/components/psychologist-card";
 import { buttonClass } from "@/components/ui/form";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
@@ -26,21 +27,22 @@ export default async function MatchResultsPage({ params, searchParams }: PagePro
   );
 }
 
-function reasonText(r: Reason, dict: Dictionary, locale: Locale): string {
+function reasonText(r: Reason, dict: Dictionary, locale: Locale, labels: Record<string, string>): string {
   const t = dict.match.reasons;
+  const L = (k: string) => labels[k] ?? k;
   switch (r.key) {
     case "concerns":
-      return fill(t.concerns, { list: formatList(r.concerns.map((c) => dict.taxonomy.concerns[c].toLowerCase()), locale) });
+      return fill(t.concerns, { list: formatList(r.concerns.map((c) => L(c).toLowerCase()), locale) });
     case "clientType":
-      return fill(t.clientType, { who: dict.taxonomy.clientTypes[r.clientType].toLowerCase() });
+      return fill(t.clientType, { who: L(r.clientType).toLowerCase() });
     case "style":
-      return fill(t.style, { list: formatList(r.approaches.map((a) => dict.taxonomy.approaches[a]), locale) });
+      return fill(t.style, { list: formatList(r.approaches.map((a) => L(a)), locale) });
     case "budget":
       return fill(t.budget, { price: formatPrice(r.priceCents, locale) });
     case "soon":
       return fill(t.soon, { date: formatShortDate(r.date, locale) });
     case "language":
-      return fill(t.language, { language: dict.languages[r.language] });
+      return fill(t.language, { language: L(r.language) });
     case "city":
       return fill(t.city, { city: r.city });
   }
@@ -50,7 +52,7 @@ async function Results({ locale, dict, searchParams }: { locale: Locale; dict: D
   const sp = await searchParams;
   const answers = parseAnswers(sp);
   if (!answers) redirect(`/${locale}/match`);
-  const matches = await findMatches(answers, locale, dict.titles);
+  const [matches, taxonomy] = await Promise.all([findMatches(answers, locale, dict.titles), getTaxonomy(locale)]);
   const retake = `/${locale}/match?${new URLSearchParams(
     Object.entries(sp).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : v ? [[k, v]] : [])),
   )}`;
@@ -76,6 +78,7 @@ async function Results({ locale, dict, searchParams }: { locale: Locale; dict: D
                 card={m.card}
                 locale={locale}
                 dict={dict}
+                labels={taxonomy.labels}
                 footer={
                   m.reasons.length > 0 && (
                     <div>
@@ -84,7 +87,7 @@ async function Results({ locale, dict, searchParams }: { locale: Locale; dict: D
                         {m.reasons.map((r) => (
                           <li key={r.key} className="flex gap-2 text-sm text-ink">
                             <Check className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
-                            {reasonText(r, dict, locale)}
+                            {reasonText(r, dict, locale, taxonomy.labels)}
                           </li>
                         ))}
                       </ul>

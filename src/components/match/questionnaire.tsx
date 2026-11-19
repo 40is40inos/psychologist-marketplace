@@ -6,8 +6,6 @@ import type { Dictionary } from "@/i18n/get-dictionary";
 
 type Q = Dictionary["match"];
 const CLIENT_TYPES = ["individuals", "couples", "families", "children", "adolescents"] as const;
-const CONCERNS = ["anxiety", "depression", "relationships", "stress", "trauma", "grief", "self_esteem", "panic", "sleep", "eating", "addiction", "ocd", "lgbtq", "parenting", "life_transitions"] as const;
-const LANGS = ["el", "en", "fr", "de"] as const;
 const MAX_CONCERNS = 3;
 const STEPS = 8;
 const noopSubscribe = () => () => {};
@@ -66,7 +64,7 @@ function Step({
 export function Questionnaire({
   action,
   t,
-  concernLabels,
+  concerns: concernItems,
   genders,
   languages,
   cities,
@@ -74,9 +72,9 @@ export function Questionnaire({
 }: {
   action: string;
   t: Q;
-  concernLabels: Dictionary["taxonomy"]["concerns"];
+  concerns: { slug: string; label: string }[];
   genders: Dictionary["taxonomy"]["genders"];
-  languages: Dictionary["languages"];
+  languages: { slug: string; label: string }[];
   cities: { slug: string; name: string }[];
   initial: Record<string, string | string[] | undefined>;
 }) {
@@ -112,7 +110,7 @@ export function Questionnaire({
 
       <Step i={1} title={t.questions.concerns} hint={t.questions.concernsHint} {...common}>
         <div className="flex flex-wrap gap-2">
-          {CONCERNS.map((c) => {
+          {concernItems.map(({ slug: c, label }) => {
             const on = concerns.includes(c);
             const disabled = !on && concerns.length >= MAX_CONCERNS;
             return (
@@ -126,7 +124,7 @@ export function Questionnaire({
                   onChange={(e) => setConcerns((prev) => (e.target.checked ? [...prev, c] : prev.filter((x) => x !== c)))}
                   className="sr-only"
                 />
-                {concernLabels[c]}
+                {label}
               </label>
             );
           })}
@@ -149,7 +147,7 @@ export function Questionnaire({
 
       <Step i={3} title={t.questions.language} {...common}>
         <div className="grid gap-2 sm:grid-cols-2">
-          {LANGS.map((l) => <Radio key={l} name="language" value={l} label={languages[l]} def={v("language", "el")} />)}
+          {languages.map((l) => <Radio key={l.slug} name="language" value={l.slug} label={l.label} def={v("language", "el")} />)}
         </div>
       </Step>
 

@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { getCities } from "@/lib/public-data";
+import { getTaxonomy } from "@/lib/taxonomy-data";
 import { Questionnaire } from "@/components/match/questionnaire";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/match">): Promise<Metadata> {
@@ -35,14 +36,14 @@ export default async function MatchPage({ params, searchParams }: PageProps<"/[l
 }
 
 async function Form({ locale, dict, searchParams }: { locale: Locale; dict: Dictionary; searchParams: PageProps<"/[lang]/match">["searchParams"] }) {
-  const [cities, initial] = await Promise.all([getCities(locale), searchParams]);
+  const [cities, initial, taxonomy] = await Promise.all([getCities(locale), searchParams, getTaxonomy(locale)]);
   return (
     <Questionnaire
       action={`/${locale}/match/results`}
       t={dict.match}
-      concernLabels={dict.taxonomy.concerns}
+      concerns={taxonomy.concerns}
       genders={dict.taxonomy.genders}
-      languages={dict.languages}
+      languages={taxonomy.languages}
       cities={cities}
       initial={initial}
     />

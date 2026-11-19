@@ -36,6 +36,9 @@ export interface PublicProfile {
   lateFeePercent: number;
   bookingNoticeHours: number;
   bookingWindowDays: number;
+  /** Published feedback: consented by the client and approved by an admin. */
+  reviews: { rating: number; comment: string | null; date: Date }[];
+  ratingAverage: number | null;
 }
 
 /** Public profile data. Cached briefly; availability is computed separately (live). */
@@ -54,6 +57,12 @@ export async function getPublicProfile(slug: string, locale: Locale): Promise<Pu
       faqs: { orderBy: { sortOrder: "asc" } },
       offerings: { where: { active: true }, orderBy: { priceCents: "desc" } },
       offices: { take: 1, include: { city: { include: { translations: true } } } },
+      feedback: {
+        where: { publicConsent: true, moderationStatus: "approved" },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: { rating: true, comment: true, createdAt: true },
+      },
     },
   });
   if (!p) return null;
@@ -100,6 +109,8 @@ export async function getPublicProfile(slug: string, locale: Locale): Promise<Pu
     lateFeePercent: p.lateCancellationFeePercent,
     bookingNoticeHours: p.bookingNoticeHours,
     bookingWindowDays: p.bookingWindowDays,
+    reviews: p.feedback.map((f) => ({ rating: f.rating, comment: f.comment, date: f.createdAt })),
+    ratingAverage: p.feedback.length ? p.feedback.reduce((s, f) => s + f.rating, 0) / p.feedback.length : null,
   };
 }
 

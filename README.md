@@ -77,6 +77,36 @@ Seed accounts all use `SEED_PASSWORD` from `.env`:
 | Calendar download | `/api/appointments/[id]/ics` |
 | Private post-session feedback (public only with explicit opt-in) | `Feedback` model, appointment page |
 
+## Section 4 — psychologist workspace (`/[lang]/dashboard`)
+| Feature | Where |
+|---|---|
+| Onboarding wizard (personal, license + ID upload, education, specialties, photo/bio/video, prices, office, IBAN/ΑΦΜ, submit) | `dashboard/profile`, `src/actions/onboarding.ts` |
+| Private file storage (content-sniffed uploads; documents only for owner/admin) | `src/lib/storage.ts`, `/api/documents/[id]`, `/api/photos/[id]` |
+| Weekly hours per format, buffer, notice, booking window, time off, manual approval | `dashboard/calendar`, `src/lib/availability.ts` |
+| Calendar sync: import busy times from Google/Outlook secret iCal links; export feed | `src/lib/calendar-sync.ts`, `/api/calendar/[token]`, `/api/cron/calendars` |
+| Appointments: accept/decline, reschedule, cancel, no-show, completed, mark paid | `dashboard/appointments`, `src/lib/booking-psychologist.ts` |
+| Video sessions: Daily.co when `DAILY_API_KEY` is set, otherwise built-in WebRTC (add TURN for production) | `/[lang]/session/[id]`, `src/lib/video.ts` |
+| Client list and encrypted private notes (psychologist only) | `dashboard/clients` |
+| Payments, receipts (Απόδειξη Παροχής Υπηρεσιών) and myDATA transmission with the psychologist's own credentials | `dashboard/payments`, `src/lib/invoicing.ts`, `src/lib/mydata.ts` |
+| Profile analytics (views, search appearances, booking starts, bookings) | `dashboard/analytics`, `src/lib/analytics.ts` |
+| Configurable plans (price, commission, features) | `dashboard/plan`, `/admin/plans`, `src/lib/plans.ts` |
+
+myDATA: confirm the VAT exemption and income classification codes with an accountant
+(`MYDATA_*` env vars); set `MYDATA_ENV=production` for the live endpoint.
+
+## Section 5 — admin panel (`/[lang]/admin`)
+| Feature | Where |
+|---|---|
+| License verification with documents | `admin/verifications` |
+| Users and psychologists, suspension | `admin/users` |
+| Bookings and payments, refunds (audited), disputes | `admin/bookings`, `admin/disputes` |
+| Review moderation (only consented + approved feedback is public, anonymous) | `admin/reviews` |
+| Editable taxonomy and session languages (database-driven, cached) | `admin/taxonomy`, `src/lib/taxonomy-data.ts` |
+| CMS for blog articles and static pages (safe Markdown) | `admin/content`, `/[lang]/blog`, `/[lang]/p/[slug]` |
+| Analytics: signups, bookings, revenue, refunds, top searches, no-result searches | `admin/analytics`, `SearchLog` |
+
+The seeded privacy/terms/cookies pages are templates and must be reviewed by legal counsel.
+
 ### Running reminders
 Call the cron endpoint every 5 minutes (Vercel Cron, GitHub Actions, or cron + curl):
 ```bash

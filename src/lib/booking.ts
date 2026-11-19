@@ -2,7 +2,8 @@ import "server-only";
 import { db } from "@/lib/db";
 import { INTRO_CALL_MINUTES, isSlotFree } from "@/lib/availability";
 import { encrypt } from "@/lib/crypto";
-import { cancelPendingReminders, queueCancellationEmail, scheduleBookingNotifications } from "@/lib/notifications/schedule";
+import { cancelPendingReminders, queueCancellationEmail, queueNotification, scheduleBookingNotifications } from "@/lib/notifications/schedule";
+import { track } from "@/lib/analytics";
 import type { SessionType } from "@/domain/session-types";
 import type { Locale } from "@/i18n/config";
 
@@ -43,7 +44,7 @@ export async function createBooking(input: {
       const profile = await tx.psychologistProfile.findFirst({
         where: { slug: input.slug, verificationStatus: "verified", published: true, user: { status: "active" } },
         select: {
-          id: true, bookingNoticeHours: true, bookingWindowDays: true, introCallEnabled: true,
+          id: true, userId: true, bookingNoticeHours: true, bookingWindowDays: true, introCallEnabled: true, requiresApproval: true,
           offerings: { where: { active: true, type: input.type } },
         },
       });
@@ -63,13 +64,15 @@ export async function createBooking(input: {
       if (!free) throw new BookingFailure("slot_taken");
 
       const priceCents = input.kind === "intro_call" ? 0 : offering.priceCents;
+      // Intro calls are free and never need approval.
+      const needsApproval = profile.requiresApproval && input.kind === "session";
       const appointment = await tx.appointment.create({
         data: {
           clientId: input.clientId,
           psychologistId: profile.id,
           sessionType: input.type,
           kind: input.kind,
-          status: "confirmed",
+          status: needsApproval ? "pending" : "confirmed",
           startsAt: input.start,
           endsAt: new Date(input.start.getTime() + duration * 60_000),
           priceCents,
@@ -94,11 +97,20 @@ export async function createBooking(input: {
         where: { id: input.clientId },
         select: { id: true, phone: true, emailReminders: true, smsReminders: true },
       });
-      await scheduleBookingNotifications(tx, { appointmentId: appointment.id, startsAt: appointment.startsAt, user }, "booking_confirmation");
-      return appointment;
+      if (needsApproval) {
+        // Reminders are scheduled once the psychologist accepts.
+        await queueNotification(tx, input.clientId, appointment.id, "booking_pending");
+      } else {
+        await scheduleBookingNotifications(tx, { appointmentId: appointment.id, startsAt: appointment.startsAt, user }, "booking_confirmation");
+      }
+      await queueNotification(tx, profile.userId, appointment.id, "psychologist_new_booking");
+      return { ...appointment, pending: needsApproval, psychologistId: profile.id };
     },
     { timeout: 15_000 },
-  );
+  ).then((a) => {
+    track([a.psychologistId], "bookings");
+    return a;
+  });
 }
 
 /** Hours left before the session; negative once it has started. */

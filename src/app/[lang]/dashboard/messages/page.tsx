@@ -11,7 +11,7 @@ export const metadata: Metadata = { robots: { index: false } };
 
 export default function Page({ params }: PageProps<"/[lang]/dashboard/messages">) {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+    <div className="max-w-3xl">
       <Suspense fallback={<PageSkeleton />}>
         <Content params={params} />
       </Suspense>

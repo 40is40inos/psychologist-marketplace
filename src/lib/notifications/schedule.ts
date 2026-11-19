@@ -42,3 +42,8 @@ export async function queueCancellationEmail(tx: Tx, userId: string, appointment
     data: { userId, appointmentId, kind: "cancellation", channel: "email", scheduledFor: new Date() },
   });
 }
+
+/** Queue a single email now (status changes, psychologist alerts). */
+export async function queueNotification(tx: Tx, userId: string, appointmentId: string, kind: NotificationKind) {
+  await tx.notification.create({ data: { userId, appointmentId, kind, channel: "email", scheduledFor: new Date() } });
+}

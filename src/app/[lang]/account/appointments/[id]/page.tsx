@@ -3,7 +3,8 @@ import { displayName } from "@/lib/slug";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CalendarPlus, CalendarClock, CheckCircle2, MapPin, MessageCircle, Receipt } from "lucide-react";
+import { CalendarPlus, CalendarClock, CheckCircle2, MapPin, MessageCircle, Receipt, Video } from "lucide-react";
+import { joinWindow } from "@/lib/video";
 import { cancelAction } from "@/actions/booking";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
@@ -71,9 +72,13 @@ async function Appointment({ params, searchParams }: PageProps<"/[lang]/account/
         <section className="rounded-2xl border border-primary/30 bg-primary-soft p-5" role="status">
           <h1 className="flex items-center gap-2 font-display text-2xl font-semibold text-ink">
             <CheckCircle2 className="size-6 text-primary" aria-hidden="true" />
-            {dict.booking.confirmedTitle}
+            {a.status === "pending" ? dict.booking.requestedTitle : dict.booking.confirmedTitle}
           </h1>
-          <p className="mt-1 text-ink/80">{fill(dict.booking.confirmedBody, { email: user.email })}</p>
+          <p className="mt-1 text-ink/80">
+            {a.status === "pending"
+              ? fill(dict.booking.requestedBody, { name: displayName(p.user.name, lang), email: user.email })
+              : fill(dict.booking.confirmedBody, { email: user.email })}
+          </p>
         </section>
       )}
       {sp.rescheduled && <FormAlert tone="success">{t.rescheduled}</FormAlert>}
@@ -103,6 +108,12 @@ async function Appointment({ params, searchParams }: PageProps<"/[lang]/account/
         </p>
 
         <div className="mt-6 flex flex-wrap gap-2">
+          {a.status === "confirmed" && a.sessionType !== "in_person" && joinWindow(a.startsAt, a.endsAt).open && (
+            <Link href={`/${lang}/session/${a.id}`} className={buttonClass.primary}>
+              <Video className="size-4" aria-hidden="true" />
+              {dict.apptPage.join}
+            </Link>
+          )}
           {active && (
             <a href={`/api/appointments/${a.id}/ics`} className={buttonClass.secondary}>
               <CalendarPlus className="size-4" aria-hidden="true" />

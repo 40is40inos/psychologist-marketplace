@@ -23,6 +23,7 @@ export async function processDueNotifications(limit = 50): Promise<{ sent: numbe
       user: { select: { email: true, phone: true, locale: true, name: true } },
       appointment: {
         include: {
+          client: { select: { name: true } },
           psychologist: {
             select: {
               user: { select: { name: true } },
@@ -63,12 +64,12 @@ export async function processDueNotifications(limit = 50): Promise<{ sent: numbe
           : t.online;
       const vars = {
         name: displayName(a.psychologist.user.name, n.user.locale),
-        client: n.user.name,
+        client: a.client.name,
         when: `${formatShortDate(a.startsAt, n.user.locale)}, ${formatTime(a.startsAt, n.user.locale)}`,
         time: formatTime(a.startsAt, n.user.locale),
         format: a.kind === "intro_call" ? dict.booking.introCall : dict.sessionTypes[a.sessionType].label,
         where,
-        url: `${brand.siteUrl}/${n.user.locale}/account`,
+        url: `${brand.siteUrl}/${n.user.locale}/${n.kind === "psychologist_new_booking" ? "dashboard/appointments" : "account"}`,
         brand: brand.name,
       };
 
@@ -76,7 +77,7 @@ export async function processDueNotifications(limit = 50): Promise<{ sent: numbe
         if (!n.user.phone) throw new Error("No phone number");
         await sendSms(n.user.phone, fill(tpl.sms ?? tpl.subject, vars));
       } else {
-        const withIcs = n.kind === "booking_confirmation" || n.kind === "reschedule" || n.kind === "cancellation";
+        const withIcs = ["booking_confirmation", "booking_accepted", "reschedule", "cancellation"].includes(n.kind);
         await sendEmail({
           to: n.user.email,
           subject: fill(tpl.subject, vars),

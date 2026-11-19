@@ -1,16 +1,18 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { BadgeCheck, CalendarClock, Clock, MessageCircle, ShieldAlert, Users } from "lucide-react";
+import { ArrowRight, BadgeCheck, Bell, CalendarClock, Clock, ShieldAlert } from "lucide-react";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
-import { requireRole } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { fill, formatShortDate } from "@/lib/format";
+import { fill, formatPrice, formatShortDate } from "@/lib/format";
+import { onboardingChecklist } from "@/lib/onboarding";
+import { statsFor } from "@/lib/analytics";
+import { requirePsychologist } from "@/lib/workspace";
+import { daysAgo } from "@/lib/time";
 import { AppointmentRow } from "@/components/appointment-row";
-import { ProfileForm } from "@/components/dashboard/profile-form";
-import { PricesForm, type PricesFormData } from "@/components/dashboard/prices-form";
+import { buttonClass } from "@/components/ui/form";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
@@ -20,171 +22,117 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
   return { title: dict.nav.dashboard, robots: { index: false } };
 }
 
-/** Psychologist area: verification status, profile, prices, sessions, clients. */
 export default async function DashboardPage({ params }: PageProps<"/[lang]/dashboard">) {
   const { lang } = await params;
   if (!isLocale(lang)) notFound();
   const dict = await getDictionary(lang);
-
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12">
-      <Suspense fallback={<PageSkeleton />}>
-        <Dashboard locale={lang} dict={dict} />
-      </Suspense>
-    </div>
+    <Suspense fallback={<PageSkeleton />}>
+      <Overview locale={lang} dict={dict} />
+    </Suspense>
   );
 }
 
-async function Dashboard({ locale, dict }: { locale: Locale; dict: Dictionary }) {
-  const user = await requireRole(locale, "psychologist", `/${locale}/dashboard`);
+async function Overview({ locale, dict }: { locale: Locale; dict: Dictionary }) {
+  const { user, profileId } = await requirePsychologist(locale, `/${locale}/dashboard`);
   const t = dict.dashboard;
   const now = new Date();
 
-  const profile = await db.psychologistProfile.findUnique({
-    where: { userId: user.id },
-    include: {
-      translations: true,
-      offerings: true,
-      appointments: {
-        where: { startsAt: { gte: now }, status: { in: ["pending", "confirmed"] } },
-        orderBy: { startsAt: "asc" },
-        take: 10,
-        include: { client: { select: { name: true } } },
-      },
-    },
-  });
-  if (!profile) notFound();
-
-  // Clients = people with at least one non-cancelled session.
-  const clientStats = await db.appointment.groupBy({
-    by: ["clientId"],
-    where: { psychologistId: profile.id, status: { in: ["confirmed", "completed"] } },
-    _count: { _all: true },
-    _max: { startsAt: true },
-    orderBy: { _max: { startsAt: "desc" } },
-    take: 20,
-  });
-  const clientNames = new Map(
-    (
-      await db.user.findMany({
-        where: { id: { in: clientStats.map((c) => c.clientId) } },
-        select: { id: true, name: true },
-      })
-    ).map((u) => [u.id, u.name]),
-  );
+  const [profile, checklist, requests, upcoming, stats, earnings] = await Promise.all([
+    db.psychologistProfile.findUniqueOrThrow({
+      where: { id: profileId },
+      select: { title: true, verificationStatus: true, rejectionReason: true, submittedAt: true },
+    }),
+    onboardingChecklist(profileId),
+    db.appointment.count({ where: { psychologistId: profileId, status: "pending", startsAt: { gte: now } } }),
+    db.appointment.findMany({
+      where: { psychologistId: profileId, status: "confirmed", startsAt: { gte: now } },
+      orderBy: { startsAt: "asc" },
+      take: 5,
+      include: { client: { select: { name: true } } },
+    }),
+    statsFor(profileId, 30),
+    db.payment.aggregate({
+      where: { status: "paid", paidAt: { gte: daysAgo(30) }, appointment: { psychologistId: profileId } },
+      _sum: { amountCents: true, commissionCents: true },
+    }),
+  ]);
 
   const status = profile.verificationStatus;
   const banner = t.verification[status];
   const BannerIcon = status === "verified" ? BadgeCheck : status === "pending" ? Clock : ShieldAlert;
-  const bannerTone =
-    status === "verified"
-      ? "border-primary/30 bg-primary-soft"
-      : status === "pending"
-        ? "border-border bg-surface-muted"
-        : "border-accent/30 bg-accent-soft";
-
-  const prices: PricesFormData = Object.fromEntries(
-    profile.offerings.map((o) => [o.type, { active: o.active, durationMinutes: o.durationMinutes, priceCents: o.priceCents }]),
-  );
+  const incomplete = Object.values(checklist).filter((v) => !v).length;
+  const base = `/${locale}/dashboard`;
 
   return (
-    <>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
-            {fill(t.title, { name: user.name.split(" ")[0] })}
-          </h1>
-          <p className="mt-1 text-muted">{dict.titles[profile.title]}</p>
-        </div>
-        <Link href={`/${locale}/dashboard/messages`} className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface px-4 font-semibold text-ink hover:border-primary">
-          <MessageCircle className="size-4 text-primary" aria-hidden="true" />
-          {t.messages}
-        </Link>
+    <div className="space-y-8">
+      <div>
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">{fill(t.title, { name: user.name.split(" ")[0] })}</h1>
+        <p className="mt-1 text-muted">{dict.titles[profile.title]}</p>
       </div>
 
-      <div role="status" className={`mt-6 flex gap-3 rounded-2xl border p-4 sm:p-5 ${bannerTone}`}>
+      <div role="status" className={`flex gap-3 rounded-2xl border p-4 sm:p-5 ${status === "verified" ? "border-primary/30 bg-primary-soft" : status === "pending" ? "border-border bg-surface-muted" : "border-accent/30 bg-accent-soft"}`}>
         <BannerIcon className={`mt-0.5 size-5 shrink-0 ${status === "verified" ? "text-primary" : status === "pending" ? "text-muted" : "text-accent"}`} aria-hidden="true" />
-        <div>
+        <div className="flex-1">
           <p className="font-semibold text-ink">{banner.title}</p>
-          <p className="text-sm text-ink/80">{fill(banner.body, { reason: profile.rejectionReason ?? "—" })}</p>
+          <p className="text-sm text-ink/80">
+            {status === "pending" && profile.submittedAt
+              ? fill(dict.onboarding.submitted, { date: formatShortDate(profile.submittedAt, locale) })
+              : fill(banner.body, { reason: profile.rejectionReason ?? "—" })}
+          </p>
+          {(status !== "verified" && (!profile.submittedAt || incomplete > 0)) && (
+            <Link href={`${base}/profile`} className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-primary hover:underline">
+              {dict.onboarding.title} ({Object.keys(checklist).length - incomplete}/{Object.keys(checklist).length})
+              <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          )}
         </div>
       </div>
 
-      <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_20rem]">
-        <div className="space-y-12">
-          <section aria-labelledby="prices">
-            <h2 id="prices" className="text-xl font-semibold text-ink">{t.pricesTitle}</h2>
-            <p className="mb-4 mt-1 text-sm text-muted">{t.pricesSubtitle}</p>
-            <PricesForm data={prices} t={t} sessionTypes={dict.sessionTypes} introCall={profile.introCallEnabled} />
-            <p className="mt-3 flex items-center gap-2 text-sm text-muted">
-              <CalendarClock className="size-4" aria-hidden="true" />
-              {t.availabilityNote}
-            </p>
-          </section>
+      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label={dict.apptPage.tabs.requests} value={String(requests)} href={`${base}/appointments`} highlight={requests > 0} icon={<Bell className="size-4" aria-hidden="true" />} />
+        <Stat label={dict.analyticsPage.views} value={String(stats.totals.views)} href={`${base}/analytics`} />
+        <Stat label={dict.analyticsPage.bookings} value={String(stats.totals.bookings)} href={`${base}/analytics`} />
+        <Stat label={dict.paymentsPage.net} value={formatPrice((earnings._sum.amountCents ?? 0) - (earnings._sum.commissionCents ?? 0), locale)} href={`${base}/payments`} />
+      </dl>
 
-          <section aria-labelledby="profile">
-            <h2 id="profile" className="text-xl font-semibold text-ink">{t.profileTitle}</h2>
-            <p className="mb-4 mt-1 text-sm text-muted">{t.profileSubtitle}</p>
-            <ProfileForm
-              t={t}
-              languages={dict.languages}
-              data={{
-                practisingSince: profile.practisingSince,
-                sessionLanguages: profile.sessionLanguages,
-                published: profile.published,
-                translations: Object.fromEntries(
-                  profile.translations.map((tr) => [tr.locale, { headline: tr.headline, bio: tr.bio, approach: tr.approach }]),
-                ),
-              }}
-            />
-          </section>
+      <section aria-labelledby="upcoming">
+        <div className="flex items-center justify-between gap-3">
+          <h2 id="upcoming" className="flex items-center gap-2 text-lg font-semibold text-ink">
+            <CalendarClock className="size-5 text-primary" aria-hidden="true" />
+            {t.upcomingTitle}
+          </h2>
+          <Link href={`${base}/appointments`} className="text-sm font-medium text-primary hover:underline">{dict.workspace.nav.appointments} →</Link>
         </div>
+        {upcoming.length ? (
+          <ul className="mt-2 divide-y divide-border rounded-2xl border border-border bg-surface px-4">
+            {upcoming.map((a) => (
+              <AppointmentRow
+                key={a.id}
+                locale={locale}
+                dict={dict}
+                href={`${base}/appointments#${a.id}`}
+                a={{ id: a.id, startsAt: a.startsAt, sessionType: a.sessionType, kind: a.kind, status: a.status, priceCents: a.priceCents, counterpart: a.client.name }}
+              />
+            ))}
+          </ul>
+        ) : (
+          <div className="mt-3">
+            <EmptyState title={t.noUpcoming}>
+              <Link href={`${base}/calendar`} className={buttonClass.secondary}>{dict.workspace.nav.calendar}</Link>
+            </EmptyState>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
 
-        <aside className="space-y-10">
-          <section aria-labelledby="upcoming">
-            <h2 id="upcoming" className="flex items-center gap-2 text-lg font-semibold text-ink">
-              <CalendarClock className="size-5 text-primary" aria-hidden="true" />
-              {t.upcomingTitle}
-            </h2>
-            {profile.appointments.length ? (
-              <ul className="mt-2 divide-y divide-border rounded-2xl border border-border bg-surface px-4">
-                {profile.appointments.map((a) => (
-                  <AppointmentRow
-                    key={a.id}
-                    locale={locale}
-                    dict={dict}
-                    a={{ id: a.id, startsAt: a.startsAt, sessionType: a.sessionType, status: a.status, priceCents: a.priceCents, counterpart: a.client.name }}
-                  />
-                ))}
-              </ul>
-            ) : (
-              <div className="mt-3"><EmptyState title={t.noUpcoming} /></div>
-            )}
-          </section>
-
-          <section aria-labelledby="clients">
-            <h2 id="clients" className="flex items-center gap-2 text-lg font-semibold text-ink">
-              <Users className="size-5 text-primary" aria-hidden="true" />
-              {t.clientsTitle}
-            </h2>
-            {clientStats.length ? (
-              <ul className="mt-2 divide-y divide-border rounded-2xl border border-border bg-surface px-4">
-                {clientStats.map((c) => (
-                  <li key={c.clientId} className="py-3">
-                    <p className="font-medium text-ink">{clientNames.get(c.clientId)}</p>
-                    <p className="text-sm text-muted">
-                      {fill(t.sessionsCount, { count: c._count._all })}
-                      {c._max.startsAt && ` · ${fill(t.lastSession, { date: formatShortDate(c._max.startsAt, locale) })}`}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-sm text-muted">{t.noClients}</p>
-            )}
-          </section>
-        </aside>
-      </div>
-    </>
+function Stat({ label, value, href, highlight, icon }: { label: string; value: string; href: string; highlight?: boolean; icon?: React.ReactNode }) {
+  return (
+    <Link href={href} className={`rounded-2xl border p-4 transition-colors hover:border-primary ${highlight ? "border-accent/40 bg-accent-soft" : "border-border bg-surface"}`}>
+      <dt className="flex items-center gap-1.5 text-sm text-muted">{icon}{label}</dt>
+      <dd className="mt-1 font-display text-2xl font-semibold tabular-nums text-ink">{value}</dd>
+    </Link>
   );
 }

@@ -11,6 +11,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { INTRO_CALL_MINUTES } from "@/lib/availability";
 import { fill, formatPrice, formatShortDate, formatTime } from "@/lib/format";
 import { getPublicProfile } from "@/lib/profile";
+import { track } from "@/lib/analytics";
 import { Avatar } from "@/components/avatar";
 import { SessionTypeIcon } from "@/components/session-type-icon";
 import { BookingForm } from "@/components/booking/booking-form";
@@ -49,6 +50,7 @@ async function Book({ params, searchParams }: PageProps<"/[lang]/psychologists/[
   const priceLabel = price === 0 ? t.free : formatPrice(price, lang);
   const formatLabel = kind === "intro_call" ? fill(t.introCallFormat, { format: dict.sessionTypes[type].label.toLowerCase() }) : dict.sessionTypes[type].label;
   const user = await getCurrentUser();
+  track([p.id], "bookingStarts");
   const here = `${profilePath}/book?${new URLSearchParams({ type, kind, start: start.toISOString() })}`;
 
   return (

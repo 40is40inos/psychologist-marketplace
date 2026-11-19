@@ -13,8 +13,11 @@ import "dotenv/config";
 import { createCipheriv, randomBytes, scrypt } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
-import { SPECIALTY_KINDS } from "../src/domain/taxonomy";
+import { SESSION_LANGUAGES, SPECIALTY_KINDS } from "../src/domain/taxonomy";
+import en from "../src/i18n/dictionaries/en";
+import el from "../src/i18n/dictionaries/el";
 import { cities, psychologists, toMinutes } from "./seed-data";
+import { content } from "./seed-content";
 
 if (process.env.NODE_ENV === "production") throw new Error("Refusing to seed in production");
 
@@ -64,11 +67,26 @@ async function main() {
     }
   }
   const specialtyIds = new Map<string, string>();
+  const dictKey = { concern: "concerns", approach: "approaches", client_type: "clientTypes" } as const;
   for (const [kind, slugs] of Object.entries(SPECIALTY_KINDS)) {
-    for (const slug of slugs) {
-      const s = await db.specialty.upsert({ where: { slug }, create: { slug, kind: kind as "concern" }, update: {} });
+    for (const [sortOrder, slug] of slugs.entries()) {
+      const key = dictKey[kind as keyof typeof dictKey];
+      const labels = {
+        el: (el.taxonomy[key] as Record<string, string>)[slug],
+        en: (en.taxonomy[key] as Record<string, string>)[slug],
+      };
+      // Labels are only filled in on first run so admin edits survive re-seeding.
+      const s = await db.specialty.upsert({ where: { slug }, create: { slug, kind: kind as "concern", labels, sortOrder }, update: {} });
+      if (!s.labels || Object.keys(s.labels as object).length === 0) await db.specialty.update({ where: { id: s.id }, data: { labels, sortOrder } });
       specialtyIds.set(slug, s.id);
     }
+  }
+  for (const [sortOrder, code] of SESSION_LANGUAGES.entries()) {
+    await db.language.upsert({
+      where: { code },
+      create: { code, labels: { el: el.languages[code], en: en.languages[code] }, sortOrder },
+      update: {},
+    });
   }
 
   const user = (email: string, name: string, role: "client" | "psychologist" | "admin", locale: "el" | "en" = "el") =>
@@ -227,6 +245,66 @@ async function main() {
       data: ["eleni-papadopoulou", "alex-nikolaidis"].map((slug) => ({ userId: client.id, psychologistId: profiles.get(slug)!.id })),
       skipDuplicates: true,
     });
+  }
+
+  // ── Plans (configurable in /admin/plans) ──
+  const basic = await db.plan.upsert({
+    where: { slug: "basic" },
+    create: { slug: "basic", name: { el: "Βασικό", en: "Basic" }, monthlyPriceCents: 0, commissionBps: 1500, features: ["video", "invoicing"], isDefault: true, sortOrder: 0 },
+    update: {},
+  });
+  const pro = await db.plan.upsert({
+    where: { slug: "pro" },
+    create: { slug: "pro", name: { el: "Pro", en: "Pro" }, monthlyPriceCents: 3900, commissionBps: 0, features: ["video", "invoicing", "analytics", "calendar_sync", "featured"], sortOrder: 1 },
+    update: {},
+  });
+  void basic;
+
+  // Psychologist 1 (Eleni) is on Pro, with analytics history and receipts.
+  const eleni = await db.psychologistProfile.findUniqueOrThrow({ where: { slug: "eleni-papadopoulou" }, select: { id: true } });
+  await db.psychologistProfile.update({ where: { id: eleni.id }, data: { planId: pro.id, planStartedAt: new Date(), submittedAt: new Date() } });
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 86_400_000);
+    const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    const views = 8 + ((i * 7) % 11) + (d.getUTCDay() === 1 ? 6 : 0);
+    await db.profileStat.upsert({
+      where: { psychologistId_date: { psychologistId: eleni.id, date } },
+      create: { psychologistId: eleni.id, date, views, searchAppearances: views * 4, bookingStarts: Math.round(views / 4), bookings: i % 5 === 0 ? 1 : 0 },
+      update: {},
+    });
+  }
+  if ((await db.invoice.count({ where: { psychologistId: eleni.id } })) === 0) {
+    const paid = await db.payment.findMany({
+      where: { status: "paid", appointment: { psychologistId: eleni.id } },
+      orderBy: { paidAt: "asc" },
+      include: { appointment: { select: { id: true, client: { select: { name: true } } } } },
+    });
+    for (const [n, pay] of paid.entries()) {
+      await db.invoice.create({
+        data: {
+          psychologistId: eleni.id, appointmentId: pay.appointment.id, number: n + 1, issueDate: pay.paidAt ?? new Date(),
+          clientName: pay.appointment.client.name, netCents: pay.amountCents, totalCents: pay.amountCents, vatExemption: "7", status: "issued",
+        },
+      });
+    }
+  }
+
+  // ── CMS starter content (only created if missing, so admin edits survive) ──
+  for (const c of content) {
+    const exists = await db.contentPage.findUnique({ where: { kind_slug: { kind: c.kind, slug: c.slug } } });
+    if (exists) continue;
+    await db.contentPage.create({
+      data: {
+        kind: c.kind, slug: c.slug, status: "published", publishedAt: new Date(), authorId: admin.id,
+        translations: { create: (["el", "en"] as const).map((locale) => ({ locale, title: c[locale].title, excerpt: c[locale].excerpt ?? null, body: c[locale].body })) },
+      },
+    });
+  }
+
+  // ── Feedback examples for moderation ──
+  const fb = await db.appointment.findMany({ where: { clientId: client.id, status: "completed", feedback: null }, take: 1, select: { id: true, psychologistId: true } });
+  for (const a of fb) {
+    await db.feedback.create({ data: { appointmentId: a.id, clientId: client.id, psychologistId: a.psychologistId, rating: 5, comment: "Πολύ ζεστή και πρακτική προσέγγιση. Έφυγα με σαφή εργαλεία.", publicConsent: true } });
   }
 
   console.log("Seed complete. Accounts use SEED_PASSWORD from .env:");

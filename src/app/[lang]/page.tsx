@@ -8,6 +8,7 @@ import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import type { Concern } from "@/domain/taxonomy";
 import { fill, formatPrice } from "@/lib/format";
 import { getCities, getFeatured, getLowestPrices } from "@/lib/public-data";
+import { getTaxonomy } from "@/lib/taxonomy-data";
 import { SearchForm } from "@/components/search-form";
 import { SessionTypeIcon } from "@/components/session-type-icon";
 import { PsychologistCard } from "@/components/psychologist-card";
@@ -21,7 +22,8 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
   const { lang } = await params;
   if (!isLocale(lang)) notFound();
   const dict = await getDictionary(lang);
-  const [cities, prices, featured] = await Promise.all([getCities(lang), getLowestPrices(), getFeatured(lang)]);
+  const [cities, prices, featured, taxonomy] = await Promise.all([getCities(lang), getLowestPrices(), getFeatured(lang), getTaxonomy(lang)]);
+  const popular = POPULAR.filter((c) => taxonomy.concerns.some((x) => x.slug === c));
 
   return (
     <>
@@ -37,19 +39,19 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
           </p>
 
           <div className="mt-8">
-            <SearchForm locale={lang} dict={dict} cities={cities} />
+            <SearchForm locale={lang} dict={dict} cities={cities} languages={taxonomy.languages} />
           </div>
 
           <div className="mt-6">
             <h2 className="text-sm font-medium text-muted">{dict.home.concernsTitle}</h2>
             <ul className="mt-3 flex flex-wrap gap-2">
-              {POPULAR.map((key) => (
+              {popular.map((key) => (
                 <li key={key}>
                   <Link
                     href={`/${lang}/psychologists?concerns=${key}`}
                     className="inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-ink transition-colors hover:border-primary hover:text-primary"
                   >
-                    {dict.taxonomy.concerns[key]}
+                    {taxonomy.labels[key]}
                   </Link>
                 </li>
               ))}
@@ -109,7 +111,7 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
         <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {featured.map((card) => (
             <li key={card.slug}>
-              <PsychologistCard card={card} locale={lang} dict={dict} />
+              <PsychologistCard card={card} locale={lang} dict={dict} labels={taxonomy.labels} />
             </li>
           ))}
         </ul>

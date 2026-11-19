@@ -5,10 +5,9 @@ import { publicProfileWhere, toCard, type PsychologistCard } from "@/lib/search"
 import type { SessionType } from "@/domain/session-types";
 import {
   CLIENT_TYPES,
-  CONCERNS,
   GENDERS,
-  SESSION_LANGUAGES,
-  pickValid,
+  LANGUAGE_RE,
+  cleanSlugs,
   type Approach,
   type ClientType,
   type Concern,
@@ -49,10 +48,10 @@ export function parseAnswers(p: Record<string, string | string[] | undefined>): 
   if (!s("for")) return null;
   return {
     forWhom: pick(s("for"), CLIENT_TYPES, "individuals"),
-    concerns: pickValid(list("concerns"), CONCERNS).slice(0, 5),
+    concerns: cleanSlugs(list("concerns"), 5),
     format: pick(s("format"), FORMATS, "any"),
     city: /^[a-z0-9-]{2,40}$/.test(s("city") ?? "") ? s("city")! : "",
-    language: pick(s("language"), SESSION_LANGUAGES, "el"),
+    language: LANGUAGE_RE.test(s("language") ?? "") ? s("language")! : "el",
     budget: pick(s("budget"), BUDGETS, "any"),
     gender: pick(s("gender"), [...GENDERS, "any"] as const, "any"),
     style: pick(s("style"), STYLES, "unsure"),

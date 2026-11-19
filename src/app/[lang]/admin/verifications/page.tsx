@@ -35,6 +35,8 @@ async function Queue({ locale, dict }: { locale: Locale; dict: Dictionary }) {
       licensingAuthority: true,
       createdAt: true,
       user: { select: { name: true, email: true } },
+      documents: { where: { kind: { in: ["license", "identity", "degree"] } }, select: { id: true, kind: true, filename: true } },
+      submittedAt: true,
     },
   });
 
@@ -49,6 +51,7 @@ async function Queue({ locale, dict }: { locale: Locale; dict: Dictionary }) {
               <VerificationCard
                 key={p.id}
                 t={t}
+                docs={dict.adminDocs}
                 item={{
                   profileId: p.id,
                   name: p.user.name,
@@ -56,7 +59,8 @@ async function Queue({ locale, dict }: { locale: Locale; dict: Dictionary }) {
                   title: dict.titles[p.title],
                   licenseNumber: p.licenseNumber,
                   licensingAuthority: p.licensingAuthority,
-                  submitted: fill(t.submitted, { date: formatShortDate(p.createdAt, locale) }),
+                  submitted: fill(t.submitted, { date: formatShortDate(p.submittedAt ?? p.createdAt, locale) }),
+                  documents: p.documents.map((d) => ({ id: d.id, label: `${d.kind === "license" ? t.license : d.kind} · ${d.filename}` })),
                 }}
               />
             ))}

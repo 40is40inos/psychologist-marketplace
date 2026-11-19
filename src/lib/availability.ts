@@ -1,13 +1,13 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-
-/** The shared client or a transaction, so checks can run inside a booking transaction. */
-type Client = Prisma.TransactionClient | typeof db;
 import type { SessionType } from "@/domain/session-types";
 import { addDaysToKey, isoWeekday, localDateKey, zonedToUtc } from "@/lib/time";
 
-/** Gap kept free after every session for notes and a breather. */
+/** The shared client or a transaction, so checks can run inside a booking transaction. */
+type Client = Prisma.TransactionClient | typeof db;
+
+/** Default gap after every session when a psychologist hasn't set one. */
 export const BUFFER_MINUTES = 10;
 export const INTRO_CALL_MINUTES = 15;
 
@@ -28,6 +28,8 @@ export interface SlotQuery {
   /** Session format, or null for an intro call (allowed in any window). */
   type: SessionType | null;
   durationMinutes: number;
+  /** Minutes kept free after each session (the psychologist's setting). */
+  bufferMinutes?: number;
   /** Earliest bookable instant (now + notice). */
   earliest: Date;
   /** Number of local days to look ahead, starting today. */
@@ -37,19 +39,21 @@ export interface SlotQuery {
 }
 
 /** Slot starts align to this grid inside a working window. */
-function stepFor(durationMinutes: number): number {
+function stepFor(durationMinutes: number, buffer: number): number {
   if (durationMinutes <= 20) return 30;
-  return Math.ceil((durationMinutes + BUFFER_MINUTES) / 30) * 30;
+  return Math.ceil((durationMinutes + buffer) / 30) * 30;
 }
 
 /**
  * Pure slot generator: no database access, so it is easy to test. Returns
- * UTC start instants, sorted.
+ * UTC start instants, sorted. Windows can be limited to certain formats,
+ * which is how online and in-person hours are kept separate.
  */
 export function generateSlots(q: SlotQuery): Date[] {
+  const buffer = q.bufferMinutes ?? BUFFER_MINUTES;
   const slots: Date[] = [];
-  const step = stepFor(q.durationMinutes);
-  const blockMs = (q.durationMinutes + BUFFER_MINUTES) * 60_000;
+  const step = stepFor(q.durationMinutes, buffer);
+  const blockMs = (q.durationMinutes + buffer) * 60_000;
   const today = localDateKey(q.earliest);
 
   for (let i = 0; i < q.days; i++) {
@@ -64,7 +68,7 @@ export function generateSlots(q: SlotQuery): Date[] {
         const start = zonedToUtc(y, m, d, minute);
         if (start < q.earliest) continue;
         const end = new Date(start.getTime() + blockMs);
-        const clash = q.busy.some((b) => start < new Date(b.endsAt.getTime() + BUFFER_MINUTES * 60_000) && end > b.startsAt);
+        const clash = q.busy.some((b) => start < new Date(b.endsAt.getTime() + buffer * 60_000) && end > b.startsAt);
         if (clash) continue;
         slots.push(start);
         if (q.limit && slots.length >= q.limit) return slots.sort((a, b) => +a - +b);
@@ -80,24 +84,41 @@ interface ProfileTiming {
   bookingWindowDays: number;
 }
 
-/** Load rules, time off and booked appointments for many psychologists at once. */
-async function loadSchedules(ids: string[], until: Date, client: Client = db) {
+interface Schedule {
+  rules: Rule[];
+  busy: Busy[];
+  bufferMinutes: number;
+}
+
+/**
+ * Load hours, buffer, time off, bookings and synced calendar events for many
+ * psychologists at once.
+ */
+async function loadSchedules(ids: string[], until: Date, client: Client = db): Promise<Map<string, Schedule>> {
   const now = new Date();
   // Sequential on purpose: a transaction client runs one query at a time.
+  const profiles = await client.psychologistProfile.findMany({ where: { id: { in: ids } }, select: { id: true, bufferMinutes: true } });
   const rules = await client.availabilityRule.findMany({ where: { psychologistId: { in: ids } } });
   const timeOff = await client.timeOff.findMany({ where: { psychologistId: { in: ids }, endsAt: { gte: now }, startsAt: { lte: until } } });
   const appts = await client.appointment.findMany({
-      where: { psychologistId: { in: ids }, status: { in: ["pending", "confirmed"] }, endsAt: { gte: now }, startsAt: { lte: until } },
-      select: { psychologistId: true, startsAt: true, endsAt: true },
+    where: { psychologistId: { in: ids }, status: { in: ["pending", "confirmed"] }, endsAt: { gte: now }, startsAt: { lte: until } },
+    select: { psychologistId: true, startsAt: true, endsAt: true },
   });
-  const by = new Map<string, { rules: Rule[]; busy: Busy[] }>(ids.map((id) => [id, { rules: [], busy: [] }]));
+  const external = await client.externalBusy.findMany({
+    where: { calendar: { psychologistId: { in: ids } }, endsAt: { gte: now }, startsAt: { lte: until } },
+    select: { startsAt: true, endsAt: true, calendar: { select: { psychologistId: true } } },
+  });
+
+  const by = new Map<string, Schedule>(ids.map((id) => [id, { rules: [], busy: [], bufferMinutes: BUFFER_MINUTES }]));
+  for (const p of profiles) by.get(p.id)!.bufferMinutes = p.bufferMinutes;
   for (const r of rules) by.get(r.psychologistId)!.rules.push(r);
   for (const t of timeOff) by.get(t.psychologistId)!.busy.push(t);
   for (const a of appts) by.get(a.psychologistId)!.busy.push(a);
+  for (const e of external) by.get(e.calendar.psychologistId)!.busy.push(e);
   return by;
 }
 
-/** Bookable slots for one psychologist and format, grouped by local date. */
+/** Bookable slots for one psychologist and format. */
 export async function getSlots(
   profile: ProfileTiming,
   type: SessionType | null,

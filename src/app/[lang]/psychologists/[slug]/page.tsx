@@ -1,15 +1,17 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Accessibility, BadgeCheck, GraduationCap, Languages, MapPin, ShieldCheck, Sparkles } from "lucide-react";
+import { Accessibility, BadgeCheck, GraduationCap, Languages, MapPin, ShieldCheck, Sparkles, Star } from "lucide-react";
 import { currentMarket } from "@/config/market";
 import { intlLocale, isLocale, locales, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { getCurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { CURRENT_YEAR, fill, formatList, formatPrice } from "@/lib/format";
+import { CURRENT_YEAR, fill, formatList, formatPrice, formatShortDate } from "@/lib/format";
 import { getPublicProfile, videoEmbed, type PublicProfile } from "@/lib/profile";
 import { buildSlotOptions } from "@/lib/slot-options";
+import { getTaxonomy } from "@/lib/taxonomy-data";
+import { track } from "@/lib/analytics";
 import { Avatar } from "@/components/avatar";
 import { SaveButton } from "@/components/save-button";
 import { SessionTypeIcon } from "@/components/session-type-icon";
@@ -45,19 +47,20 @@ export default function ProfilePage({ params }: PageProps<"/[lang]/psychologists
 async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[slug]">["params"] }) {
   const { lang, slug } = await params;
   if (!isLocale(lang)) notFound();
-  const [dict, p] = await Promise.all([getDictionary(lang), getPublicProfile(slug, lang)]);
+  const [dict, p, taxonomy] = await Promise.all([getDictionary(lang), getPublicProfile(slug, lang), getTaxonomy(lang)]);
   if (!p) notFound();
 
   const t = dict.profile;
-  const tax = dict.taxonomy;
   const user = await getCurrentUser();
   const saved =
     user?.role === "client" &&
     !!(await db.savedPsychologist.findUnique({ where: { userId_psychologistId: { userId: user.id, psychologistId: p.id } } }));
   const options = await buildSlotOptions(p, dict, lang);
+  // Count views from everyone except the psychologist themselves.
+  if (user?.role !== "psychologist") track([p.id], "views");
   const embed = videoEmbed(p.videoUrl);
   const path = `/${lang}/psychologists/${p.slug}`;
-  const languageNames = p.languages.map((l) => dict.languages[l as keyof Dictionary["languages"]] ?? l);
+  const languageNames = p.languages.map((l) => taxonomy.labels[l] ?? l);
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_24rem]">
@@ -104,13 +107,13 @@ async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[s
 
         <div className="grid gap-8 sm:grid-cols-2">
           <Block id="concerns" title={t.concerns}>
-            <Tags items={p.concerns.map((c) => tax.concerns[c])} />
+            <Tags items={p.concerns.map((c) => taxonomy.labels[c] ?? c)} />
           </Block>
           <Block id="approaches" title={t.approaches}>
-            <Tags items={p.approaches.map((a) => tax.approaches[a])} />
+            <Tags items={p.approaches.map((a) => taxonomy.labels[a] ?? a)} />
           </Block>
           <Block id="client-types" title={t.clientTypes}>
-            <Tags items={p.clientTypes.map((c) => tax.clientTypes[c])} />
+            <Tags items={p.clientTypes.map((c) => taxonomy.labels[c] ?? c)} />
           </Block>
           <Block id="languages" title={t.languages}>
             <p className="flex items-center gap-2 text-ink">
@@ -191,6 +194,26 @@ async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[s
             {fill(t.cancellationText, { hours: p.cancellationHours, percent: p.lateFeePercent })}
           </p>
         </Block>
+
+        {p.reviews.length > 0 && (
+          <Block id="reviews" title={dict.reviewsPublic.title}>
+            <p className="mb-3 flex items-center gap-2 text-sm text-muted">
+              <Star className="size-4 fill-current text-primary" aria-hidden="true" />
+              {fill(dict.reviewsPublic.average, { rating: (p.ratingAverage ?? 0).toLocaleString(lang, { maximumFractionDigits: 1 }) })} · {fill(dict.reviewsPublic.count, { count: p.reviews.length })}
+            </p>
+            <ul className="space-y-3">
+              {p.reviews.map((r, i) => (
+                <li key={i} className="rounded-2xl border border-border bg-surface p-4">
+                  <p className="flex items-center gap-0.5" aria-label={`${r.rating}/5`}>
+                    {Array.from({ length: 5 }, (_, k) => <Star key={k} className={`size-4 ${k < r.rating ? "fill-current text-primary" : "text-border"}`} aria-hidden="true" />)}
+                  </p>
+                  {r.comment && <p className="mt-2 whitespace-pre-line text-ink">{r.comment}</p>}
+                  <p className="mt-2 text-xs text-muted">{dict.reviewsPublic.anonymous} · {formatShortDate(r.date, lang)}</p>
+                </li>
+              ))}
+            </ul>
+          </Block>
+        )}
 
         {p.faqs.length > 0 && (
           <Block id="faq" title={t.faq}>

@@ -4,6 +4,11 @@
 //            license verification, disputes, audit log.
 // Section 3: taxonomy, availability, booking, payments, saved psychologists,
 //            messaging, notifications, feedback.
+// Section 4: onboarding, documents, payout details, plans, calendar sync,
+//            approval flow, video rooms, session notes, invoices (myDATA),
+//            payouts, profile analytics.
+// Section 5: admin panel: review moderation, editable taxonomy and
+//            languages, CMS (blog + static pages), search log, refunds.
 //
 // Conventions
 // - Money is stored as integer cents with an explicit currency (EUR for now).
@@ -115,6 +120,49 @@ enum NotificationKind {
   cancellation
   reschedule
   new_message
+  /// Client: request received, waiting for the psychologist to accept.
+  booking_pending
+  booking_accepted
+  booking_declined
+  /// Psychologist: someone booked (or requested) a session.
+  psychologist_new_booking
+}
+
+enum DocumentKind {
+  license
+  identity
+  degree
+  photo
+}
+
+enum ModerationStatus {
+  pending
+  approved
+  rejected
+}
+
+enum ContentKind {
+  article
+  page
+}
+
+enum ContentStatus {
+  draft
+  published
+}
+
+enum InvoiceStatus {
+  draft
+  issued
+  transmitted
+  failed
+  cancelled
+}
+
+enum PayoutStatus {
+  scheduled
+  paid
+  failed
 }
 
 enum NotificationStatus {
@@ -201,6 +249,7 @@ model User {
   messagesSent        Message[]
   notifications       Notification[]
   feedbackGiven       Feedback[]
+  notesAbout          SessionNote[]         @relation("NoteClient")
 
   @@index([role, status])
 }
@@ -251,6 +300,26 @@ model PsychologistProfile {
   bookingNoticeHours         Int                @default(12)
   /// How far ahead clients can book, in days.
   bookingWindowDays          Int                @default(60)
+  /// Minutes kept free after each session.
+  bufferMinutes              Int                @default(10)
+  /// When true, new bookings wait for the psychologist to accept them.
+  requiresApproval           Boolean            @default(false)
+  /// Onboarding wizard progress; submittedAt marks "sent for verification".
+  onboardingStep             Int                @default(0)
+  submittedAt                DateTime?
+  planId                     String?
+  planStartedAt              DateTime?
+  /// Secret token for the read-only calendar feed (Google/Outlook subscribe).
+  calendarFeedToken          String?            @unique
+  /// Payout details. IBAN and tax number are encrypted (src/lib/crypto.ts).
+  payoutAccountHolder        String?
+  payoutIbanEncrypted        String?
+  payoutIbanLast4            String?
+  taxIdEncrypted             String?
+  taxOffice                  String?
+  /// myDATA credentials for issuing receipts as this psychologist (encrypted).
+  mydataUserEncrypted        String?
+  mydataKeyEncrypted         String?
   /// Languages the psychologist can hold sessions in (ISO 639-1 codes).
   sessionLanguages           String[]
   /// Psychologist's own switch; the profile is public only when this is true
@@ -274,6 +343,13 @@ model PsychologistProfile {
   savedBy       SavedPsychologist[]
   conversations Conversation[]
   feedback      Feedback[]
+  plan          Plan?                            @relation(fields: [planId], references: [id])
+  documents     Document[]
+  calendars     ExternalCalendar[]
+  notes         SessionNote[]
+  invoices      Invoice[]
+  payouts       Payout[]
+  stats         ProfileStat[]
 
   @@index([countryCode, verificationStatus, published])
 }
@@ -332,9 +408,22 @@ model Specialty {
   id            String                  @id @default(cuid())
   slug          String                  @unique
   kind          SpecialtyKind
+  /// Labels per language, e.g. {"el": "Άγχος", "en": "Anxiety"}. Edited by admins.
+  labels        Json                    @default("{}")
+  active        Boolean                 @default(true)
+  sortOrder     Int                     @default(0)
   psychologists PsychologistSpecialty[]
 
-  @@index([kind])
+  @@index([kind, active])
+}
+
+/// Session languages offered on the platform. Edited by admins.
+model Language {
+  /// ISO 639-1 code, e.g. "el".
+  code      String  @id
+  labels    Json    @default("{}")
+  active    Boolean @default(true)
+  sortOrder Int     @default(0)
 }
 
 model PsychologistSpecialty {
@@ -452,26 +541,35 @@ model Appointment {
   notifications   Notification[]
   rescheduledFrom Appointment?        @relation("Reschedule", fields: [rescheduledFromId], references: [id])
   rescheduledTo   Appointment?        @relation("Reschedule")
+  videoRoom       VideoRoom?
+  notes           SessionNote[]
+  invoice         Invoice?
 
   @@index([psychologistId, startsAt])
   @@index([clientId, startsAt])
 }
 
 model Payment {
-  id            String        @id @default(cuid())
-  appointmentId String        @unique
-  amountCents   Int
-  currency      Currency      @default(EUR)
-  method        PaymentMethod
-  status        PaymentStatus @default(pending)
+  id              String        @id @default(cuid())
+  appointmentId   String        @unique
+  amountCents     Int
+  currency        Currency      @default(EUR)
+  method          PaymentMethod
+  status          PaymentStatus @default(pending)
   /// Payment provider and its reference (e.g. "stripe", PaymentIntent id).
-  provider      String?
-  providerRef   String?
+  provider        String?
+  providerRef     String?
   /// Sequential receipt number, assigned when the payment is marked paid.
-  receiptNumber String?       @unique
-  paidAt        DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  receiptNumber   String?       @unique
+  /// Refunds recorded by an admin (card refunds also go through the provider).
+  refundedCents   Int           @default(0)
+  refundedAt      DateTime?
+  refundReason    String?
+  /// Platform commission for this payment (snapshot of the plan at booking).
+  commissionCents Int           @default(0)
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
 }
@@ -479,21 +577,27 @@ model Payment {
 /// Private feedback after a session. Never public unless the client opts in
 /// AND the reviews policy allows publishing.
 model Feedback {
-  id             String   @id @default(cuid())
-  appointmentId  String   @unique
-  clientId       String
-  psychologistId String
+  id               String           @id @default(cuid())
+  appointmentId    String           @unique
+  clientId         String
+  psychologistId   String
   /// 1-5
-  rating         Int
-  comment        String?  @db.Text
-  publicConsent  Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  rating           Int
+  comment          String?          @db.Text
+  publicConsent    Boolean          @default(false)
+  /// Only consented AND approved feedback is shown publicly (anonymously).
+  moderationStatus ModerationStatus @default(pending)
+  moderationNote   String?
+  moderatedAt      DateTime?
+  moderatedById    String?
+  createdAt        DateTime         @default(now())
 
   appointment  Appointment         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
   client       User                @relation(fields: [clientId], references: [id])
   psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id])
 
   @@index([psychologistId])
+  @@index([moderationStatus, createdAt])
 }
 
 // ─── Messaging and notifications ────────────────────────────────────────────
@@ -588,4 +692,228 @@ model AuditLog {
 
   @@index([targetType, targetId])
   @@index([createdAt])
+}
+
+// ─── Section 4: psychologist workspace ──────────────────────────────────────
+
+/// Configurable pricing plans (free listing, Pro, commission). Edited by admins.
+model Plan {
+  id                String   @id @default(cuid())
+  slug              String   @unique
+  /// Display names per language, e.g. {"el": "Δωρεάν", "en": "Free"}.
+  name              Json
+  monthlyPriceCents Int      @default(0)
+  /// Platform commission per paid session, in basis points (1500 = 15%).
+  commissionBps     Int      @default(0)
+  /// Feature flags, e.g. ["video", "analytics", "calendar_sync", "featured"].
+  features          String[]
+  isDefault         Boolean  @default(false)
+  active            Boolean  @default(true)
+  sortOrder         Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  psychologists PsychologistProfile[]
+}
+
+/// Uploaded verification documents and photos. Files live in private storage
+/// (src/lib/storage.ts); only the owner and admins can download documents.
+model Document {
+  id             String       @id @default(cuid())
+  psychologistId String
+  kind           DocumentKind
+  filename       String
+  mimeType       String
+  sizeBytes      Int
+  storageKey     String       @unique
+  createdAt      DateTime     @default(now())
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@index([psychologistId, kind])
+}
+
+/// A calendar the psychologist subscribes us to (secret iCal URL from Google
+/// or Outlook). Its events block availability.
+model ExternalCalendar {
+  id             String    @id @default(cuid())
+  psychologistId String
+  label          String
+  urlEncrypted   String
+  lastSyncedAt   DateTime?
+  lastError      String?
+  createdAt      DateTime  @default(now())
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  busy         ExternalBusy[]
+
+  @@index([psychologistId])
+}
+
+model ExternalBusy {
+  id         String   @id @default(cuid())
+  calendarId String
+  startsAt   DateTime
+  endsAt     DateTime
+
+  calendar ExternalCalendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@index([calendarId, startsAt])
+}
+
+/// One video room per online appointment.
+model VideoRoom {
+  id            String   @id @default(cuid())
+  appointmentId String   @unique
+  /// "daily" or "p2p" (built-in WebRTC, development and fallback).
+  provider      String
+  /// Provider room name / URL.
+  providerRef   String
+  createdAt     DateTime @default(now())
+
+  appointment Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  signals     VideoSignal[]
+}
+
+/// WebRTC signalling messages for the built-in peer-to-peer video.
+model VideoSignal {
+  id        String   @id @default(cuid())
+  roomId    String
+  fromUser  String
+  kind      String // "offer" | "answer" | "candidate" | "bye"
+  payload   String   @db.Text
+  createdAt DateTime @default(now())
+
+  room VideoRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt])
+}
+
+/// Private clinical notes. Encrypted; visible only to the psychologist who
+/// wrote them (not to clients, not to admins).
+model SessionNote {
+  id             String   @id @default(cuid())
+  psychologistId String
+  clientId       String
+  appointmentId  String?
+  bodyEncrypted  String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  client       User                @relation("NoteClient", fields: [clientId], references: [id])
+  appointment  Appointment?        @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@index([psychologistId, clientId, createdAt])
+}
+
+/// Receipts issued by the psychologist (Greek "Απόδειξη Παροχής Υπηρεσιών",
+/// myDATA type 11.2). Numbered per psychologist and series.
+model Invoice {
+  id             String        @id @default(cuid())
+  psychologistId String
+  appointmentId  String?       @unique
+  series         String        @default("A")
+  number         Int
+  issueDate      DateTime      @default(now())
+  clientName     String
+  netCents       Int
+  vatCents       Int           @default(0)
+  totalCents     Int
+  /// VAT rate in basis points; psychological services are usually exempt.
+  vatRateBps     Int           @default(0)
+  vatExemption   String?
+  status         InvoiceStatus @default(draft)
+  /// myDATA identifiers returned by AADE.
+  mydataMark     String?
+  mydataUid      String?
+  mydataQrUrl    String?
+  mydataError    String?
+  createdAt      DateTime      @default(now())
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  appointment  Appointment?        @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  @@unique([psychologistId, series, number])
+}
+
+/// Money the platform transfers to a psychologist (card payments, later).
+model Payout {
+  id              String       @id @default(cuid())
+  psychologistId  String
+  periodStart     DateTime
+  periodEnd       DateTime
+  grossCents      Int
+  commissionCents Int
+  netCents        Int
+  status          PayoutStatus @default(scheduled)
+  reference       String?
+  paidAt          DateTime?
+  createdAt       DateTime     @default(now())
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@index([psychologistId, periodStart])
+}
+
+/// Daily counters for profile analytics.
+model ProfileStat {
+  psychologistId    String
+  /// Local (Europe/Athens) calendar date.
+  date              DateTime @db.Date
+  views             Int      @default(0)
+  searchAppearances Int      @default(0)
+  bookingStarts     Int      @default(0)
+  bookings          Int      @default(0)
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@id([psychologistId, date])
+}
+
+// ─── Section 5: CMS and search analytics ────────────────────────────────────
+
+/// Blog articles and static pages (about, privacy, terms...).
+model ContentPage {
+  id          String        @id @default(cuid())
+  kind        ContentKind
+  slug        String
+  status      ContentStatus @default(draft)
+  publishedAt DateTime?
+  coverUrl    String?
+  authorId    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  translations ContentTranslation[]
+
+  @@unique([kind, slug])
+  @@index([kind, status, publishedAt])
+}
+
+model ContentTranslation {
+  pageId  String
+  locale  Locale
+  title   String
+  excerpt String?
+  /// Markdown (rendered with a small safe renderer, no raw HTML).
+  body    String  @db.Text
+
+  page ContentPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@id([pageId, locale])
+}
+
+/// Anonymous search log for "top searches" and "no results" reports.
+/// Stores the query text and filters only; never who searched.
+model SearchLog {
+  id          String   @id @default(cuid())
+  query       String
+  filters     Json?
+  resultCount Int
+  locale      Locale
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([query])
 }

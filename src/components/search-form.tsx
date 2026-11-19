@@ -1,5 +1,5 @@
 import { CalendarDays, Languages, MapPin, Search } from "lucide-react";
-import { SESSION_LANGUAGES } from "@/domain/taxonomy";
+import type { TaxonomyItem } from "@/lib/taxonomy-data";
 import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/get-dictionary";
 
@@ -21,12 +21,14 @@ export function SearchForm({
   locale,
   dict,
   cities,
+  languages,
   values = empty,
   keep,
 }: {
   locale: Locale;
   dict: Dictionary;
   cities: { slug: string; name: string }[];
+  languages: TaxonomyItem[];
   values?: SearchFormValues;
   keep?: URLSearchParams;
 }) {
@@ -74,8 +76,8 @@ export function SearchForm({
           <Languages className={icon} aria-hidden="true" />
           <select id="language" name="language" defaultValue={values.language} className={`${field} appearance-none`}>
             <option value="">{dict.filters.anyLanguage}</option>
-            {SESSION_LANGUAGES.map((l) => (
-              <option key={l} value={l}>{dict.languages[l]}</option>
+            {languages.map((l) => (
+              <option key={l.slug} value={l.slug}>{l.label}</option>
             ))}
           </select>
         </div>

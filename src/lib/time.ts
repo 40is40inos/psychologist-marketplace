@@ -74,3 +74,8 @@ export function isoWeekday(key: string): number {
 export function hoursUntil(date: Date): number {
   return (date.getTime() - Date.now()) / 3_600_000;
 }
+
+/** The instant `days` days ago. */
+export function daysAgo(days: number): Date {
+  return new Date(Date.now() - days * 86_400_000);
+}

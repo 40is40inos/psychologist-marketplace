@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Search } from "lucide-react";
 import type { Prisma } from "@/generated/prisma/client";
 import { setUserStatus } from "@/actions/admin";
@@ -54,7 +55,10 @@ async function Users({
     where,
     orderBy: { createdAt: "desc" },
     take: 50,
-    select: { id: true, name: true, email: true, role: true, status: true, createdAt: true },
+    select: {
+      id: true, name: true, email: true, role: true, status: true, createdAt: true,
+      psychologistProfile: { select: { slug: true, verificationStatus: true, published: true, plan: { select: { name: true } } } },
+    },
   });
 
   return (
@@ -84,6 +88,15 @@ async function Users({
                     {u.id === admin.id && <span className="ml-2 text-xs text-muted">({t.you})</span>}
                   </p>
                   <p className="truncate text-sm text-muted">{u.email}</p>
+                  {u.psychologistProfile && (
+                    <p className="mt-1 text-xs text-muted">
+                      {dict.dashboard.verification[u.psychologistProfile.verificationStatus].title}
+                      {u.psychologistProfile.plan && ` · ${((u.psychologistProfile.plan.name ?? {}) as Record<string, string>)[locale] ?? ""}`}
+                      {u.psychologistProfile.verificationStatus === "verified" && u.psychologistProfile.published && (
+                        <> · <Link href={`/${locale}/psychologists/${u.psychologistProfile.slug}`} className="text-primary hover:underline">{dict.adminX.content.view}</Link></>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <span className="rounded-full bg-surface-muted px-2.5 py-1 text-xs font-medium text-ink">{dict.roles[u.role]}</span>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${u.status === "active" ? "bg-primary-soft text-primary" : "bg-accent-soft text-accent"}`}>

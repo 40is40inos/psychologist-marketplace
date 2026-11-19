@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { rescheduleAction } from "@/actions/booking";
+import { psychologistRescheduleAction } from "@/actions/appointments";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 export interface SlotOption {
@@ -33,7 +34,7 @@ export function SlotPicker({
   intlLocale: string;
   timeZone: string;
   labels: { chooseType: string; chooseSlot: string; noSlots: string; more: string; earlier: string; tz: string; confirm?: string };
-  mode: { kind: "link"; base: string } | { kind: "reschedule"; appointmentId: string; locale: string };
+  mode: { kind: "link"; base: string } | { kind: "reschedule"; appointmentId: string; locale: string; actor?: "client" | "psychologist" };
   initialKey?: string;
 }) {
   const [key, setKey] = useState(initialKey && options.some((o) => o.key === initialKey) ? initialKey : options[0]?.key);
@@ -162,7 +163,7 @@ export function SlotPicker({
       </div>
 
       {mode.kind === "reschedule" && picked && (
-        <form action={rescheduleAction}>
+        <form action={mode.actor === "psychologist" ? psychologistRescheduleAction : rescheduleAction}>
           <input type="hidden" name="appointmentId" value={mode.appointmentId} />
           <input type="hidden" name="start" value={picked} />
           <input type="hidden" name="locale" value={mode.locale} />

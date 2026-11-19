@@ -12,16 +12,19 @@ export function PsychologistCard({
   locale,
   dict,
   footer,
+  labels,
 }: {
   card: Card;
   locale: Locale;
   dict: Dictionary;
   /** Extra content under the card, e.g. match reasons. */
   footer?: React.ReactNode;
+  /** Taxonomy labels (slug/code -> label) from the database. */
+  labels?: Record<string, string>;
 }) {
   const href = `/${locale}/psychologists/${c.slug}`;
   const hasOffice = c.offerings.some((o) => o.type === "in_person");
-  const languageNames = c.languages.map((l) => dict.languages[l as keyof Dictionary["languages"]] ?? l);
+  const languageNames = c.languages.map((l) => labels?.[l] ?? dict.languages[l as keyof Dictionary["languages"]] ?? l);
 
   return (
     <article className="relative flex h-full flex-col rounded-2xl border border-border bg-surface p-5 transition-shadow focus-within:ring-2 focus-within:ring-primary/30 hover:shadow-md">

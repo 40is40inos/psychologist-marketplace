@@ -32,6 +32,9 @@ const PERMISSIONS = {
     "users.manage",
     "disputes.resolve",
     "analytics.read",
+    "payments.refund",
+    "taxonomy.manage",
+    "content.manage",
   ],
 } as const satisfies Record<Role, readonly string[]>;
 
