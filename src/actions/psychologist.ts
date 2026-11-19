@@ -137,6 +137,7 @@ export async function savePrices(_prev: SaveState, formData: FormData): Promise<
         update: { active, durationMinutes, priceCents: price },
       });
     }
+    await tx.psychologistProfile.update({ where: { id: profileId }, data: { introCallEnabled: formData.get("introCall") === "on" } });
   });
 
   refresh();

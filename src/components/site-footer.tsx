@@ -7,7 +7,7 @@ import { Logo } from "./logo";
 
 export function SiteFooter({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   return (
-    <footer className="mt-auto border-t border-border bg-surface-muted">
+    <footer className="mt-auto print:hidden border-t border-border bg-surface-muted">
       <div className="mx-auto max-w-6xl space-y-10 px-4 py-12 sm:px-6">
         <CrisisNotice dict={dict} />
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">

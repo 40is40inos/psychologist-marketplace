@@ -2,6 +2,8 @@
 // Section 1: market, languages, currency, session types.
 // Section 2: user roles (client, psychologist, admin), auth sessions,
 //            license verification, disputes, audit log.
+// Section 3: taxonomy, availability, booking, payments, saved psychologists,
+//            messaging, notifications, feedback.
 //
 // Conventions
 // - Money is stored as integer cents with an explicit currency (EUR for now).
@@ -69,6 +71,59 @@ enum AppointmentStatus {
   no_show
 }
 
+enum Gender {
+  female
+  male
+  nonbinary
+  undisclosed
+}
+
+enum SpecialtyKind {
+  concern
+  approach
+  client_type
+}
+
+enum AppointmentKind {
+  session
+  /// Free 15-minute introductory call.
+  intro_call
+}
+
+enum PaymentMethod {
+  pay_at_session
+  card
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  refunded
+  waived
+  failed
+}
+
+enum NotificationChannel {
+  email
+  sms
+}
+
+enum NotificationKind {
+  booking_confirmation
+  reminder_24h
+  reminder_1h
+  cancellation
+  reschedule
+  new_message
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+  skipped
+}
+
 enum DisputeStatus {
   open
   under_review
@@ -128,6 +183,9 @@ model User {
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   lastSignInAt    DateTime?
+  /// Reminder preferences. SMS needs a phone number.
+  emailReminders  Boolean    @default(true)
+  smsReminders    Boolean    @default(false)
   /// Soft delete for GDPR erasure requests; personal fields are scrubbed.
   deletedAt       DateTime?
 
@@ -138,6 +196,11 @@ model User {
   disputesResolved    Dispute[]             @relation("DisputeResolver")
   verificationsDone   PsychologistProfile[] @relation("ProfileVerifier")
   auditEntries        AuditLog[]
+  saved               SavedPsychologist[]
+  clientConversations Conversation[]        @relation("ClientConversations")
+  messagesSent        Message[]
+  notifications       Notification[]
+  feedbackGiven       Feedback[]
 
   @@index([role, status])
 }
@@ -160,37 +223,57 @@ model AuthSession {
 // ─── Psychologists ──────────────────────────────────────────────────────────
 
 model PsychologistProfile {
-  id                 String             @id @default(cuid())
-  userId             String             @unique
-  slug               String             @unique
-  countryCode        String             @db.Char(2)
-  title              ProfessionalTitle
+  id                         String             @id @default(cuid())
+  userId                     String             @unique
+  slug                       String             @unique
+  countryCode                String             @db.Char(2)
+  title                      ProfessionalTitle
   /// License to practise, checked by an admin before the profile is public.
-  licenseNumber      String
-  licensingAuthority String
-  verificationStatus VerificationStatus @default(pending)
-  verifiedAt         DateTime?
-  verifiedById       String?
+  licenseNumber              String
+  licensingAuthority         String
+  verificationStatus         VerificationStatus @default(pending)
+  verifiedAt                 DateTime?
+  verifiedById               String?
   /// Shown to the psychologist when an application is rejected.
-  rejectionReason    String?
-  practisingSince    Int?
-  photoUrl           String?
+  rejectionReason            String?
+  practisingSince            Int?
+  photoUrl                   String?
+  /// Optional intro video (YouTube/Vimeo URL, embedded privacy-friendly).
+  videoUrl                   String?
+  gender                     Gender             @default(undisclosed)
+  /// Offers a free 15-minute intro call.
+  introCallEnabled           Boolean            @default(false)
+  /// Free cancellation up to this many hours before a session.
+  cancellationHours          Int                @default(24)
+  /// Share of the price charged for a late cancellation or no-show.
+  lateCancellationFeePercent Int                @default(100)
+  /// Minimum notice for new bookings, in hours.
+  bookingNoticeHours         Int                @default(12)
+  /// How far ahead clients can book, in days.
+  bookingWindowDays          Int                @default(60)
   /// Languages the psychologist can hold sessions in (ISO 639-1 codes).
-  sessionLanguages   String[]
+  sessionLanguages           String[]
   /// Psychologist's own switch; the profile is public only when this is true
   /// AND verificationStatus is verified.
-  published          Boolean            @default(false)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  published                  Boolean            @default(false)
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
 
-  user         User                             @relation("ProfileOwner", fields: [userId], references: [id], onDelete: Cascade)
-  verifiedBy   User?                            @relation("ProfileVerifier", fields: [verifiedById], references: [id])
-  country      Country                          @relation(fields: [countryCode], references: [code])
-  translations PsychologistProfileTranslation[]
-  offerings    SessionOffering[]
-  offices      Office[]
-  specialties  PsychologistSpecialty[]
-  appointments Appointment[]
+  user          User                             @relation("ProfileOwner", fields: [userId], references: [id], onDelete: Cascade)
+  verifiedBy    User?                            @relation("ProfileVerifier", fields: [verifiedById], references: [id])
+  country       Country                          @relation(fields: [countryCode], references: [code])
+  translations  PsychologistProfileTranslation[]
+  offerings     SessionOffering[]
+  offices       Office[]
+  specialties   PsychologistSpecialty[]
+  appointments  Appointment[]
+  education     PsychologistEducation[]
+  faqs          PsychologistFaq[]
+  availability  AvailabilityRule[]
+  timeOff       TimeOff[]
+  savedBy       SavedPsychologist[]
+  conversations Conversation[]
+  feedback      Feedback[]
 
   @@index([countryCode, verificationStatus, published])
 }
@@ -243,23 +326,15 @@ model Office {
   offerings    SessionOffering[]
 }
 
-/// Concerns and approaches (anxiety, CBT, ...). Shared taxonomy, translated.
+/// Concerns, approaches and client types. Slugs match src/domain/taxonomy.ts;
+/// labels live in the dictionaries so they are type-checked per language.
 model Specialty {
   id            String                  @id @default(cuid())
   slug          String                  @unique
-  kind          String // "concern" | "approach" | "population"
-  translations  SpecialtyTranslation[]
+  kind          SpecialtyKind
   psychologists PsychologistSpecialty[]
-}
 
-model SpecialtyTranslation {
-  specialtyId String
-  locale      Locale
-  name        String
-
-  specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
-
-  @@id([specialtyId, locale])
+  @@index([kind])
 }
 
 model PsychologistSpecialty {
@@ -272,32 +347,207 @@ model PsychologistSpecialty {
   @@id([psychologistId, specialtyId])
 }
 
+model PsychologistEducation {
+  id             String @id @default(cuid())
+  psychologistId String
+  degree         String
+  institution    String
+  year           Int?
+  sortOrder      Int    @default(0)
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@index([psychologistId])
+}
+
+model PsychologistFaq {
+  id             String @id @default(cuid())
+  psychologistId String
+  locale         Locale
+  question       String
+  answer         String @db.Text
+  sortOrder      Int    @default(0)
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@index([psychologistId, locale])
+}
+
+/// Weekly working hours in the market's local time.
+model AvailabilityRule {
+  id             String        @id @default(cuid())
+  psychologistId String
+  /// ISO weekday: 1 = Monday ... 7 = Sunday.
+  weekday        Int
+  /// Minutes after local midnight, e.g. 540 = 09:00.
+  startMinute    Int
+  endMinute      Int
+  /// Formats offered in this window; empty means all active formats.
+  sessionTypes   SessionType[]
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@index([psychologistId, weekday])
+}
+
+/// Holidays and blocked time (UTC).
+model TimeOff {
+  id             String   @id @default(cuid())
+  psychologistId String
+  startsAt       DateTime
+  endsAt         DateTime
+  note           String?
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@index([psychologistId, startsAt])
+}
+
+model SavedPsychologist {
+  userId         String
+  psychologistId String
+  createdAt      DateTime @default(now())
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+
+  @@id([userId, psychologistId])
+}
+
 // ─── Appointments and disputes ──────────────────────────────────────────────
 
 /// Minimal appointment record. Booking rules come in a later section.
 model Appointment {
-  id             String            @id @default(cuid())
-  clientId       String
-  psychologistId String
-  sessionType    SessionType
-  status         AppointmentStatus @default(pending)
-  startsAt       DateTime // UTC
-  endsAt         DateTime // UTC
+  id                String            @id @default(cuid())
+  clientId          String
+  psychologistId    String
+  sessionType       SessionType
+  status            AppointmentStatus @default(pending)
+  startsAt          DateTime // UTC
+  endsAt            DateTime // UTC
   /// Snapshot of the price at booking time, so later price changes don't
   /// rewrite history.
-  priceCents     Int
-  currency       Currency          @default(EUR)
+  priceCents        Int
+  currency          Currency          @default(EUR)
   /// Language the session will be held in.
-  locale         Locale
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  locale            Locale
+  kind              AppointmentKind   @default(session)
+  paymentMethod     PaymentMethod     @default(pay_at_session)
+  /// Intake answers, AES-256-GCM encrypted (src/lib/crypto.ts). Health data.
+  intakeEncrypted   String?           @db.Text
+  cancelledAt       DateTime?
+  /// True when cancelled inside the psychologist's cancellation window.
+  lateCancellation  Boolean           @default(false)
+  /// Incremented on every change so calendar apps update the .ics event.
+  icsSequence       Int               @default(0)
+  rescheduledFromId String?           @unique
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
-  client       User                @relation("ClientAppointments", fields: [clientId], references: [id])
-  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id])
-  disputes     Dispute[]
+  client          User                @relation("ClientAppointments", fields: [clientId], references: [id])
+  psychologist    PsychologistProfile @relation(fields: [psychologistId], references: [id])
+  disputes        Dispute[]
+  payment         Payment?
+  feedback        Feedback?
+  notifications   Notification[]
+  rescheduledFrom Appointment?        @relation("Reschedule", fields: [rescheduledFromId], references: [id])
+  rescheduledTo   Appointment?        @relation("Reschedule")
 
   @@index([psychologistId, startsAt])
   @@index([clientId, startsAt])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  appointmentId String        @unique
+  amountCents   Int
+  currency      Currency      @default(EUR)
+  method        PaymentMethod
+  status        PaymentStatus @default(pending)
+  /// Payment provider and its reference (e.g. "stripe", PaymentIntent id).
+  provider      String?
+  providerRef   String?
+  /// Sequential receipt number, assigned when the payment is marked paid.
+  receiptNumber String?       @unique
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
+
+/// Private feedback after a session. Never public unless the client opts in
+/// AND the reviews policy allows publishing.
+model Feedback {
+  id             String   @id @default(cuid())
+  appointmentId  String   @unique
+  clientId       String
+  psychologistId String
+  /// 1-5
+  rating         Int
+  comment        String?  @db.Text
+  publicConsent  Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  appointment  Appointment         @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  client       User                @relation(fields: [clientId], references: [id])
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id])
+
+  @@index([psychologistId])
+}
+
+// ─── Messaging and notifications ────────────────────────────────────────────
+
+/// One thread per client-psychologist pair. Opened only after a booking.
+model Conversation {
+  id             String   @id @default(cuid())
+  clientId       String
+  psychologistId String
+  createdAt      DateTime @default(now())
+  lastMessageAt  DateTime @default(now())
+
+  client       User                @relation("ClientConversations", fields: [clientId], references: [id])
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id])
+  messages     Message[]
+
+  @@unique([clientId, psychologistId])
+  @@index([psychologistId, lastMessageAt])
+}
+
+model Message {
+  id             String    @id @default(cuid())
+  conversationId String
+  senderId       String
+  /// AES-256-GCM encrypted body (src/lib/crypto.ts).
+  bodyEncrypted  String    @db.Text
+  createdAt      DateTime  @default(now())
+  readAt         DateTime?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+}
+
+/// Outbox for emails and SMS. A cron job sends due rows.
+model Notification {
+  id            String              @id @default(cuid())
+  userId        String
+  appointmentId String?
+  kind          NotificationKind
+  channel       NotificationChannel
+  status        NotificationStatus  @default(pending)
+  scheduledFor  DateTime
+  sentAt        DateTime?
+  attempts      Int                 @default(0)
+  error         String?
+  createdAt     DateTime            @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([status, scheduledFor])
+  @@index([appointmentId])
 }
 
 /// A complaint about an appointment (no-show, billing, conduct). Opened by

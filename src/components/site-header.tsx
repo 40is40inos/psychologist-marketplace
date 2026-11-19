@@ -3,19 +3,20 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/get-dictionary";
-import { LanguageSwitcher } from "./language-switcher";
+import { LanguageSwitcher, LanguageSwitcherFallback } from "./language-switcher";
 import { Logo } from "./logo";
 import { UserMenu } from "./user-menu";
 
 export function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const links = [
     { href: `/${locale}/psychologists`, label: dict.nav.findPsychologist },
+    { href: `/${locale}/match`, label: dict.match.cta },
     { href: `/${locale}#how-it-works`, label: dict.nav.howItWorks },
     { href: `/${locale}#for-psychologists`, label: dict.nav.forPsychologists },
   ];
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-bg/90 backdrop-blur">
+    <header className="sticky top-0 z-30 print:hidden border-b border-border bg-bg/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
         <Logo locale={locale} />
 
@@ -28,7 +29,10 @@ export function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary 
         </nav>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-          <LanguageSwitcher current={locale} label={dict.a11y.changeLanguage} />
+          {/* The switcher reads the URL, so it streams in; the fallback links to each home page. */}
+          <Suspense fallback={<LanguageSwitcherFallback current={locale} label={dict.a11y.changeLanguage} />}>
+            <LanguageSwitcher current={locale} label={dict.a11y.changeLanguage} />
+          </Suspense>
           <Suspense fallback={<div className="h-10 w-16" />}>
             <UserMenu locale={locale} dict={dict} />
           </Suspense>

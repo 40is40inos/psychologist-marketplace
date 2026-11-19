@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BadgeCheck, CalendarClock, Clock, ShieldAlert, Users } from "lucide-react";
+import Link from "next/link";
+import { BadgeCheck, CalendarClock, Clock, MessageCircle, ShieldAlert, Users } from "lucide-react";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { requireRole } from "@/lib/auth/session";
@@ -88,10 +89,18 @@ async function Dashboard({ locale, dict }: { locale: Locale; dict: Dictionary })
 
   return (
     <>
-      <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
-        {fill(t.title, { name: user.name.split(" ")[0] })}
-      </h1>
-      <p className="mt-1 text-muted">{dict.titles[profile.title]}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
+            {fill(t.title, { name: user.name.split(" ")[0] })}
+          </h1>
+          <p className="mt-1 text-muted">{dict.titles[profile.title]}</p>
+        </div>
+        <Link href={`/${locale}/dashboard/messages`} className="inline-flex h-11 items-center gap-2 rounded-xl border border-border bg-surface px-4 font-semibold text-ink hover:border-primary">
+          <MessageCircle className="size-4 text-primary" aria-hidden="true" />
+          {t.messages}
+        </Link>
+      </div>
 
       <div role="status" className={`mt-6 flex gap-3 rounded-2xl border p-4 sm:p-5 ${bannerTone}`}>
         <BannerIcon className={`mt-0.5 size-5 shrink-0 ${status === "verified" ? "text-primary" : status === "pending" ? "text-muted" : "text-accent"}`} aria-hidden="true" />
@@ -106,7 +115,7 @@ async function Dashboard({ locale, dict }: { locale: Locale; dict: Dictionary })
           <section aria-labelledby="prices">
             <h2 id="prices" className="text-xl font-semibold text-ink">{t.pricesTitle}</h2>
             <p className="mb-4 mt-1 text-sm text-muted">{t.pricesSubtitle}</p>
-            <PricesForm data={prices} t={t} sessionTypes={dict.sessionTypes} />
+            <PricesForm data={prices} t={t} sessionTypes={dict.sessionTypes} introCall={profile.introCallEnabled} />
             <p className="mt-3 flex items-center gap-2 text-sm text-muted">
               <CalendarClock className="size-4" aria-hidden="true" />
               {t.availabilityNote}

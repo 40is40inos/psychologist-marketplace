@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
-import { AdminNav } from "@/components/admin/admin-nav";
+import { TabNav } from "@/components/ui/tab-nav";
 
 export async function generateMetadata({ params }: { params: Promise<{ lang: string }> }): Promise<Metadata> {
   const { lang } = await params;
@@ -22,7 +22,7 @@ export default async function AdminLayout({ children, params }: LayoutProps<"/[l
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
       <p className="text-sm font-semibold text-primary">{dict.admin.title}</p>
       <div className="mt-3">
-        <AdminNav
+        <TabNav
           label={dict.admin.title}
           links={[
             { href: base, label: dict.admin.nav.overview },

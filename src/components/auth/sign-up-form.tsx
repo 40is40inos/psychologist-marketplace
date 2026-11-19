@@ -15,11 +15,13 @@ type FieldName = keyof Dictionary["auth"]["fieldErrors"];
 export function SignUpForm({
   locale,
   initialRole,
+  next,
   t,
   titles,
 }: {
   locale: Locale;
   initialRole: SignupRole;
+  next?: string;
   t: Dictionary["auth"];
   titles: Dictionary["titles"];
 }) {
@@ -38,6 +40,7 @@ export function SignUpForm({
   return (
     <form action={action} className="space-y-5" noValidate>
       <input type="hidden" name="locale" value={locale} />
+      {next && <input type="hidden" name="next" value={next} />}
 
       {state.error && state.error !== "email_taken" && <FormAlert>{t.errors[state.error]}</FormAlert>}
 

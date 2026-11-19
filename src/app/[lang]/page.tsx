@@ -1,15 +1,19 @@
 import Link from "next/link";
-import { ArrowRight, BadgeCheck, Lock, ReceiptEuro } from "lucide-react";
+import { ArrowRight, BadgeCheck, Lock, ReceiptEuro, Sparkles } from "lucide-react";
 import { notFound } from "next/navigation";
 import { brand } from "@/config/brand";
 import { SESSION_TYPES } from "@/domain/session-types";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
-import { demoTherapists, lowestPrice, type ConcernKey } from "@/data/demo-therapists";
+import type { Concern } from "@/domain/taxonomy";
 import { fill, formatPrice } from "@/lib/format";
+import { getCities, getFeatured, getLowestPrices } from "@/lib/public-data";
 import { SearchForm } from "@/components/search-form";
 import { SessionTypeIcon } from "@/components/session-type-icon";
-import { TherapistCard } from "@/components/therapist-card";
+import { PsychologistCard } from "@/components/psychologist-card";
+
+/** Shortcuts under the search: the most common reasons people reach out. */
+const POPULAR: Concern[] = ["anxiety", "depression", "relationships", "stress", "trauma", "grief", "self_esteem", "parenting"];
 
 const trustIcons = [BadgeCheck, Lock, ReceiptEuro];
 
@@ -17,7 +21,7 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
   const { lang } = await params;
   if (!isLocale(lang)) notFound();
   const dict = await getDictionary(lang);
-  const concerns = Object.keys(dict.concerns) as ConcernKey[];
+  const [cities, prices, featured] = await Promise.all([getCities(lang), getLowestPrices(), getFeatured(lang)]);
 
   return (
     <>
@@ -33,24 +37,38 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
           </p>
 
           <div className="mt-8">
-            <SearchForm locale={lang} dict={dict} />
+            <SearchForm locale={lang} dict={dict} cities={cities} />
           </div>
 
           <div className="mt-6">
             <h2 className="text-sm font-medium text-muted">{dict.home.concernsTitle}</h2>
             <ul className="mt-3 flex flex-wrap gap-2">
-              {concerns.map((key) => (
+              {POPULAR.map((key) => (
                 <li key={key}>
                   <Link
-                    href={`/${lang}/psychologists?concern=${encodeURIComponent(dict.concerns[key])}`}
+                    href={`/${lang}/psychologists?concerns=${key}`}
                     className="inline-flex min-h-10 items-center rounded-full border border-border bg-surface px-4 text-sm font-medium text-ink transition-colors hover:border-primary hover:text-primary"
                   >
-                    {dict.concerns[key]}
+                    {dict.taxonomy.concerns[key]}
                   </Link>
                 </li>
               ))}
             </ul>
           </div>
+
+          <Link
+            href={`/${lang}/match`}
+            className="group mt-8 flex items-center gap-4 rounded-2xl border border-primary/30 bg-surface p-4 transition-colors hover:border-primary sm:max-w-xl"
+          >
+            <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary text-primary-ink">
+              <Sparkles className="size-5" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-ink">{dict.match.cta}</span>
+              <span className="block text-sm text-muted">{dict.match.ctaBody}</span>
+            </span>
+            <ArrowRight className="size-5 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </Link>
         </div>
       </section>
 
@@ -58,11 +76,11 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
       <Section title={dict.home.sessionTypesTitle} subtitle={dict.home.sessionTypesSubtitle}>
         <ul className="grid gap-4 sm:grid-cols-3">
           {SESSION_TYPES.map((type) => {
-            const from = lowestPrice(type);
+            const from = prices[type];
             return (
               <li key={type}>
                 <Link
-                  href={`/${lang}/psychologists?type=${type}`}
+                  href={`/${lang}/psychologists?format=${type}`}
                   className="group flex h-full flex-col rounded-2xl border border-border bg-surface p-6 transition-colors hover:border-primary"
                 >
                   <span className="grid size-12 place-items-center rounded-xl bg-primary-soft text-primary">
@@ -89,9 +107,9 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
       {/* Featured */}
       <Section title={dict.home.featuredTitle} muted>
         <ul className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {demoTherapists.slice(0, 3).map((t) => (
-            <li key={t.slug}>
-              <TherapistCard therapist={t} locale={lang} dict={dict} />
+          {featured.map((card) => (
+            <li key={card.slug}>
+              <PsychologistCard card={card} locale={lang} dict={dict} />
             </li>
           ))}
         </ul>

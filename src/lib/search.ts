@@ -1,76 +1,276 @@
+import "server-only";
+import { displayName } from "@/lib/slug";
+import type { Prisma } from "@/generated/prisma/client";
+import { db } from "@/lib/db";
+import { earliestSlots } from "@/lib/availability";
+import { localDateKey, zonedToUtc } from "@/lib/time";
 import { isSessionType, type SessionType } from "@/domain/session-types";
-import type { Dictionary } from "@/i18n/get-dictionary";
 import {
-  cities,
-  demoTherapists,
-  type TherapistSummary,
-} from "@/data/demo-therapists";
+  APPROACHES,
+  CLIENT_TYPES,
+  CONCERNS,
+  GENDERS,
+  SESSION_LANGUAGES,
+  pickValid,
+  type Approach,
+  type ClientType,
+  type Concern,
+  type GenderFilter,
+  type SessionLanguage,
+} from "@/domain/taxonomy";
+import type { Locale } from "@/i18n/config";
+import type { Dictionary } from "@/i18n/get-dictionary";
+import { normalize } from "@/lib/text";
 
 export const ONLINE = "online";
+import { AVAILABILITY_WINDOWS, SORTS } from "@/lib/search-constants";
+export { AVAILABILITY_WINDOWS, SORTS };
 
 export interface SearchFilters {
-  concern: string;
+  q: string;
+  concerns: Concern[];
+  approaches: Approach[];
+  clientTypes: ClientType[];
+  format: SessionType | "";
   /** City slug, "online", or "" for anywhere. */
   location: string;
-  type: SessionType | "";
+  language: SessionLanguage | "";
+  gender: GenderFilter | "";
+  /** Whole euros. */
+  priceMin: number | null;
+  priceMax: number | null;
+  availability: (typeof AVAILABILITY_WINDOWS)[number] | "";
+  /** Local date "YYYY-MM-DD": must have a free slot that day. */
+  date: string;
+  sort: (typeof SORTS)[number];
 }
 
 type RawParams = Record<string, string | string[] | undefined>;
 
-function first(value: string | string[] | undefined): string {
-  return (Array.isArray(value) ? value[0] : value)?.trim() ?? "";
+function all(v: string | string[] | undefined): string[] {
+  return (Array.isArray(v) ? v : v ? [v] : []).flatMap((x) => x.split(",")).map((x) => x.trim()).filter(Boolean);
+}
+function one(v: string | string[] | undefined): string {
+  return all(v)[0] ?? "";
+}
+function euros(v: string): number | null {
+  const n = Number(v);
+  return v && Number.isFinite(n) && n >= 0 && n <= 1000 ? Math.round(n) : null;
 }
 
 export function parseFilters(params: RawParams): SearchFilters {
-  const location = first(params.location);
-  const type = first(params.type);
+  const format = one(params.format) || one(params.type);
+  const location = one(params.location);
+  const date = one(params.date);
+  const availability = one(params.available);
+  const sort = one(params.sort);
   return {
-    concern: first(params.concern).slice(0, 80),
-    location:
-      location === ONLINE || cities.some((c) => c.slug === location)
-        ? location
-        : "",
-    type: isSessionType(type) ? type : "",
+    q: one(params.q || params.concern).slice(0, 80),
+    concerns: pickValid(all(params.concerns), CONCERNS),
+    approaches: pickValid(all(params.approaches), APPROACHES),
+    clientTypes: pickValid(all(params.for), CLIENT_TYPES),
+    format: isSessionType(format) ? format : "",
+    location: /^[a-z0-9-]{2,40}$/.test(location) ? location : "",
+    language: pickValid([one(params.language)], SESSION_LANGUAGES)[0] ?? "",
+    gender: pickValid([one(params.gender)], GENDERS)[0] ?? "",
+    priceMin: euros(one(params.min)),
+    priceMax: euros(one(params.max)),
+    availability: (AVAILABILITY_WINDOWS as readonly string[]).includes(availability) ? (availability as SearchFilters["availability"]) : "",
+    date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : "",
+    sort: (SORTS as readonly string[]).includes(sort) ? (sort as SearchFilters["sort"]) : "relevance",
   };
 }
 
-/** Lowercase and strip accents so "άγχος", "Αγχος" and "αγχος" all match. */
-export function normalize(text: string): string {
-  return text
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
+/** Back to URL params, dropping empty values. */
+export function filtersToParams(f: SearchFilters): URLSearchParams {
+  const p = new URLSearchParams();
+  if (f.q) p.set("q", f.q);
+  for (const c of f.concerns) p.append("concerns", c);
+  for (const a of f.approaches) p.append("approaches", a);
+  for (const c of f.clientTypes) p.append("for", c);
+  if (f.format) p.set("format", f.format);
+  if (f.location) p.set("location", f.location);
+  if (f.language) p.set("language", f.language);
+  if (f.gender) p.set("gender", f.gender);
+  if (f.priceMin !== null) p.set("min", String(f.priceMin));
+  if (f.priceMax !== null) p.set("max", String(f.priceMax));
+  if (f.availability) p.set("available", f.availability);
+  if (f.date) p.set("date", f.date);
+  if (f.sort !== "relevance") p.set("sort", f.sort);
+  return p;
 }
 
-/**
- * Filter therapists. Concern text matches the concern names in both
- * languages plus the headline, so a Greek query works on the English site
- * and vice versa.
- */
-export function searchTherapists(
-  filters: SearchFilters,
-  dictionaries: Dictionary[],
-): TherapistSummary[] {
-  const query = normalize(filters.concern);
+export function activeFilterCount(f: SearchFilters): number {
+  return (
+    f.concerns.length + f.approaches.length + f.clientTypes.length +
+    [f.format, f.language, f.gender, f.availability, f.date].filter(Boolean).length +
+    (f.priceMin !== null || f.priceMax !== null ? 1 : 0)
+  );
+}
 
-  return demoTherapists.filter((t) => {
-    if (filters.type && !t.offerings.some((o) => o.type === filters.type)) {
-      return false;
-    }
-    if (filters.location === ONLINE) {
-      if (!t.offerings.some((o) => o.type !== "in_person")) return false;
-    } else if (filters.location && t.citySlug !== filters.location) {
-      return false;
-    }
-    if (query) {
-      const haystack = [
-        ...Object.values(t.headline),
-        ...t.concerns.flatMap((c) => [c, ...dictionaries.map((d) => d.concerns[c])]),
-      ]
-        .map(normalize)
-        .join(" ");
-      if (!haystack.includes(query)) return false;
-    }
-    return true;
-  });
+/** Map free text ("άγχος", "panic attacks") to concern slugs via labels in every language. */
+export function concernsFromText(q: string, dicts: Dictionary[]): Concern[] {
+  const query = normalize(q);
+  if (query.length < 3) return [];
+  return CONCERNS.filter((c) =>
+    dicts.some((d) => {
+      const label = normalize(d.taxonomy.concerns[c]);
+      return label.includes(query) || query.includes(label);
+    }),
+  );
+}
+
+export interface PsychologistCard {
+  id: string;
+  slug: string;
+  name: string;
+  title: string;
+  photoUrl: string | null;
+  headline: string;
+  city: { slug: string; name: string } | null;
+  coords: { lat: number; lng: number } | null;
+  practisingSince: number | null;
+  languages: string[];
+  concerns: Concern[];
+  approaches: Approach[];
+  offerings: { type: SessionType; durationMinutes: number; priceCents: number }[];
+  introCall: boolean;
+  nextAvailable: Date | null;
+  /** How many of the requested concerns this person treats. */
+  matchedConcerns: number;
+}
+
+const cardSelect = {
+  id: true,
+  slug: true,
+  title: true,
+  photoUrl: true,
+  practisingSince: true,
+  sessionLanguages: true,
+  introCallEnabled: true,
+  bookingNoticeHours: true,
+  bookingWindowDays: true,
+  user: { select: { name: true } },
+  translations: { select: { locale: true, headline: true } },
+  offerings: { where: { active: true }, select: { type: true, durationMinutes: true, priceCents: true } },
+  offices: {
+    take: 1,
+    select: { latitude: true, longitude: true, city: { select: { slug: true, translations: { select: { locale: true, name: true } } } } },
+  },
+  specialties: { select: { specialty: { select: { slug: true, kind: true } } } },
+} satisfies Prisma.PsychologistProfileSelect;
+
+type Row = Prisma.PsychologistProfileGetPayload<{ select: typeof cardSelect }>;
+
+export function toCard(row: Row, locale: Locale, titles: Dictionary["titles"], wanted: Concern[] = []): Omit<PsychologistCard, "nextAvailable"> {
+  const tr = row.translations.find((t) => t.locale === locale) ?? row.translations[0];
+  const office = row.offices[0];
+  const concerns = row.specialties.filter((s) => s.specialty.kind === "concern").map((s) => s.specialty.slug as Concern);
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: displayName(row.user.name, locale),
+    title: titles[row.title],
+    photoUrl: row.photoUrl,
+    headline: tr?.headline ?? "",
+    city: office ? { slug: office.city.slug, name: (office.city.translations.find((t) => t.locale === locale) ?? office.city.translations[0])?.name ?? office.city.slug } : null,
+    coords: office?.latitude != null && office.longitude != null ? { lat: office.latitude, lng: office.longitude } : null,
+    practisingSince: row.practisingSince,
+    languages: row.sessionLanguages,
+    concerns,
+    approaches: row.specialties.filter((s) => s.specialty.kind === "approach").map((s) => s.specialty.slug as Approach),
+    offerings: row.offerings,
+    introCall: row.introCallEnabled,
+    matchedConcerns: wanted.filter((c) => concerns.includes(c)).length,
+  };
+}
+
+/** Public profiles only: verified, published, owner active. */
+export const publicProfileWhere: Prisma.PsychologistProfileWhereInput = {
+  verificationStatus: "verified",
+  published: true,
+  user: { status: "active", deletedAt: null },
+};
+
+export async function searchPsychologists(
+  f: SearchFilters,
+  locale: Locale,
+  dicts: Dictionary[],
+  titles: Dictionary["titles"],
+): Promise<PsychologistCard[]> {
+  // Free text adds concern matches; it never narrows to zero on its own if
+  // the text also appears in a headline.
+  const textConcerns = f.q ? concernsFromText(f.q, dicts) : [];
+  const wantedConcerns = [...new Set([...f.concerns, ...textConcerns])];
+
+  const offeringFilter: Prisma.SessionOfferingWhereInput = {
+    active: true,
+    ...(f.format && { type: f.format }),
+    ...(f.location === ONLINE && !f.format && { type: { in: ["video", "phone"] } }),
+    ...((f.priceMin !== null || f.priceMax !== null) && {
+      priceCents: {
+        ...(f.priceMin !== null && { gte: f.priceMin * 100 }),
+        ...(f.priceMax !== null && { lte: f.priceMax * 100 }),
+      },
+    }),
+  };
+
+  const and: Prisma.PsychologistProfileWhereInput[] = [publicProfileWhere, { offerings: { some: offeringFilter } }];
+  if (f.concerns.length) and.push({ specialties: { some: { specialty: { slug: { in: f.concerns } } } } });
+  if (f.approaches.length) and.push({ specialties: { some: { specialty: { slug: { in: f.approaches } } } } });
+  for (const ct of f.clientTypes) and.push({ specialties: { some: { specialty: { slug: ct } } } });
+  if (f.language) and.push({ sessionLanguages: { has: f.language } });
+  if (f.gender) and.push({ gender: f.gender });
+  if (f.location && f.location !== ONLINE) {
+    and.push({ offices: { some: { city: { slug: f.location } } } });
+    and.push({ offerings: { some: { active: true, type: "in_person" } } });
+  }
+  if (f.q) {
+    and.push({
+      OR: [
+        ...(textConcerns.length ? [{ specialties: { some: { specialty: { slug: { in: textConcerns } } } } }] : []),
+        { translations: { some: { headline: { contains: f.q, mode: "insensitive" } } } },
+        { translations: { some: { bio: { contains: f.q, mode: "insensitive" } } } },
+        { user: { name: { contains: f.q, mode: "insensitive" } } },
+      ],
+    });
+  }
+
+  const rows = await db.psychologistProfile.findMany({ where: { AND: and }, select: cardSelect, take: 100 });
+
+  // Availability: earliest slot from now, or from the chosen date.
+  const [y, m, d] = f.date ? f.date.split("-").map(Number) : [];
+  const from = f.date ? zonedToUtc(y, m, d, 0) : undefined;
+  const earliest = await earliestSlots(
+    rows.map((r) => ({
+      id: r.id,
+      bookingNoticeHours: r.bookingNoticeHours,
+      bookingWindowDays: r.bookingWindowDays,
+      minDuration: Math.min(...r.offerings.map((o) => o.durationMinutes), 50),
+    })),
+    f.date ? 1 : 28,
+    from,
+  );
+
+  const now = Date.now();
+  const limitMs = { today: 0, week: 7, "2weeks": 14 }[f.availability as "today"] ?? null;
+  let cards = rows.map((r) => ({ ...toCard(r, locale, titles, wantedConcerns), nextAvailable: earliest.get(r.id) ?? null }));
+
+  if (f.date) cards = cards.filter((c) => c.nextAvailable && localDateKey(c.nextAvailable) === f.date);
+  if (f.availability === "today") {
+    const today = localDateKey(new Date());
+    cards = cards.filter((c) => c.nextAvailable && localDateKey(c.nextAvailable) === today);
+  } else if (limitMs !== null && f.availability) {
+    cards = cards.filter((c) => c.nextAvailable && +c.nextAvailable - now <= limitMs * 86_400_000);
+  }
+
+  const minPrice = (c: PsychologistCard) => Math.min(...c.offerings.filter((o) => !f.format || o.type === f.format).map((o) => o.priceCents));
+  const soon = (c: PsychologistCard) => (c.nextAvailable ? +c.nextAvailable : Infinity);
+  const sorters: Record<SearchFilters["sort"], (a: PsychologistCard, b: PsychologistCard) => number> = {
+    relevance: (a, b) => b.matchedConcerns - a.matchedConcerns || soon(a) - soon(b),
+    earliest: (a, b) => soon(a) - soon(b),
+    price_low: (a, b) => minPrice(a) - minPrice(b),
+    price_high: (a, b) => minPrice(b) - minPrice(a),
+  };
+  return cards.sort(sorters[f.sort]);
 }

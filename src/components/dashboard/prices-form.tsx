@@ -22,7 +22,9 @@ export function PricesForm({
   data,
   t,
   sessionTypes,
+  introCall,
 }: {
+  introCall: boolean;
   data: PricesFormData;
   t: Dictionary["dashboard"];
   sessionTypes: Dictionary["sessionTypes"];
@@ -54,6 +56,13 @@ export function PricesForm({
           );
         })}
       </ul>
+      <label className="flex gap-3 rounded-2xl border border-border p-4">
+        <input type="checkbox" name="introCall" defaultChecked={introCall} className="mt-0.5 size-5 shrink-0 accent-[var(--primary)]" />
+        <span>
+          <span className="block font-medium text-ink">{t.introCall}</span>
+          <span className="block text-sm text-muted">{t.introCallHint}</span>
+        </span>
+      </label>
       <div className="flex flex-wrap items-center gap-4">
         <SubmitButton pending={isPending}>{t.save}</SubmitButton>
         {state.ok && <span key={state.at} role="status" className="text-sm font-medium text-primary">{t.saved}</span>}

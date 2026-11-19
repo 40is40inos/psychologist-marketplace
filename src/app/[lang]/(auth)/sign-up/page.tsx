@@ -6,6 +6,7 @@ import { homePathFor } from "@/domain/roles";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { getCurrentUser } from "@/lib/auth/session";
+import { safeNextPath } from "@/lib/safe-redirect";
 import { SignUpForm } from "@/components/auth/sign-up-form";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/sign-up">): Promise<Metadata> {
@@ -50,11 +51,13 @@ async function Form({
 }) {
   const user = await getCurrentUser();
   if (user) redirect(`/${locale}${homePathFor(user.role)}`);
-  const { role } = await searchParams;
+  const { role, next } = await searchParams;
+  const safeNext = safeNextPath(Array.isArray(next) ? next[0] : next, locale) ?? undefined;
   return (
     <SignUpForm
       locale={locale}
       initialRole={role === "psychologist" ? "psychologist" : "client"}
+      next={safeNext}
       t={dict.auth}
       titles={dict.titles}
     />

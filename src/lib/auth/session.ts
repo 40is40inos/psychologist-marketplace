@@ -1,4 +1,5 @@
 import "server-only";
+import { connection } from "next/server";
 import { cache } from "react";
 import { createHash, randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
@@ -58,6 +59,8 @@ export async function destroyAllSessions(userId: string): Promise<void> {
  * can both call it without extra queries.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+  // Session state is per request; never prerender it.
+  await connection();
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
 

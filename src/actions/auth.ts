@@ -155,7 +155,9 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
   });
 
   await createSession(user.id);
-  redirect(`/${locale}${homePathFor(user.role)}`);
+  // Clients who signed up mid-booking go back to their booking.
+  const next = user.role === "client" ? safeNextPath(formData.get("next"), locale) : null;
+  redirect(next ?? `/${locale}${homePathFor(user.role)}`);
 }
 
 // ─── Sign out ───────────────────────────────────────────────────────────────

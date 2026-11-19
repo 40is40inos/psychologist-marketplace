@@ -5,27 +5,38 @@ psychotherapists. Launch market: Greece. Languages: Greek (default) and English.
 
 ## Stack
 Next.js 16 (App Router, Cache Components) · TypeScript · Tailwind CSS 4 ·
-Prisma 7 + PostgreSQL · lucide-react icons.
+Prisma 7 + PostgreSQL · Leaflet maps · lucide-react icons.
 
 ## Getting started
 ```bash
-cp .env.example .env      # set DATABASE_URL and NEXT_PUBLIC_BRAND_NAME
+cp .env.example .env      # set DATABASE_URL, DATA_ENCRYPTION_KEY, CRON_SECRET
 npm install
 npm run dev               # http://localhost:3000 -> redirects to /el or /en
 ```
+
 ### Database
 No local Postgres? Prisma's built-in dev server works:
 ```bash
 npx prisma dev --name psy --detach   # prints a postgres:// URL -> put it in DATABASE_URL
-npm run db:migrate                   # apply migrations
+npx prisma migrate deploy            # apply migrations
 npx prisma db seed                   # demo data + test accounts
 ```
+With `prisma dev`, set `DATABASE_POOL_MAX=1` and `BUILD_CPUS=1` in `.env`: it
+handles very few connections and can crash under a parallel build.
+
+To create a new migration without a shadow database (needed with `prisma dev`):
+```bash
+git show HEAD:prisma/schema.prisma > /tmp/old.prisma
+npx prisma migrate diff --from-schema /tmp/old.prisma --to-schema prisma/schema.prisma --script -o prisma/migrations/<timestamp>_<name>/migration.sql
+npx prisma migrate deploy && npx prisma generate
+```
+
 Seed accounts all use `SEED_PASSWORD` from `.env`:
 `admin@example.test` (admin), `client@example.test` (client),
 `psychologist1@example.test` (verified psychologist),
 `applicant1@example.test` (psychologist awaiting verification).
 
-## Section 1 — what's in place
+## Section 1 — market and basics
 | Concern | Where |
 |---|---|
 | Brand name placeholder (env `NEXT_PUBLIC_BRAND_NAME`) | `src/config/brand.ts` |
@@ -33,43 +44,64 @@ Seed accounts all use `SEED_PASSWORD` from `.env`:
 | Locales, Intl tags, default locale | `src/i18n/config.ts` |
 | Dictionaries (`en.ts` defines the shape; `el.ts` must match or the type check fails) | `src/i18n/dictionaries/` |
 | Locale routing: `/el/...`, `/en/...`; cookie → Accept-Language → Greek | `src/proxy.ts` |
-| EUR formatting from integer cents, dates/times in Europe/Athens | `src/lib/format.ts` |
-| Session types: `in_person`, `video`, `phone` | `src/domain/session-types.ts`, Prisma enum |
-| Data model foundation | `prisma/schema.prisma` |
-| Mobile-first home + search results (demo data) | `src/app/[lang]/` |
+| EUR formatting from integer cents, dates/times in Europe/Athens | `src/lib/format.ts`, `src/lib/time.ts` |
+| Session types: `in_person`, `video`, `phone` | `src/domain/session-types.ts` |
 
 ## Section 2 — user roles
 | Role | Area | Can do |
 |---|---|---|
-| Client | `/[lang]/account` | See upcoming and past sessions (booking and payment arrive in later sections) |
-| Psychologist | `/[lang]/dashboard` | See verification status, set prices per session format, edit profile in el/en, see upcoming sessions and clients |
-| Admin | `/[lang]/admin` | Analytics overview, approve/reject licenses, suspend/reactivate users, review and resolve disputes; every action goes to the audit log |
+| Client | `/[lang]/account` | Appointments, messages, saved, receipts, reminder settings |
+| Psychologist | `/[lang]/dashboard` | Verification status, prices and intro-call toggle, bilingual profile, sessions, clients, messages |
+| Admin | `/[lang]/admin` | Analytics, license verification, user suspension, disputes; all actions audited |
 
-- Permissions live in `src/domain/roles.ts`; check them with `can(role, permission)`.
-- Auth is built in (no third-party provider): scrypt password hashes, random
-  session tokens stored hashed in `AuthSession`, httpOnly cookie, sign-in
-  rate limiting (in-memory; use Redis with more than one server).
-- `src/proxy.ts` sends signed-out visitors to sign-in; every page and Server
-  Action re-checks the session and role against the database.
-- Admins can't sign up; they're created by the seed (or directly in the DB).
-- Psychologists sign up with license number and issuing authority. Their
-  profile stays out of search until an admin verifies it.
+- Permissions: `src/domain/roles.ts` (`can(role, permission)`).
+- Auth: scrypt hashes, hashed session tokens in `AuthSession`, httpOnly cookie,
+  rate-limited sign-in (in-memory; use Redis with more than one server).
+- Admins are created by the seed only. Psychologists stay out of search until verified.
+
+## Section 3 — client features
+| Feature | Where |
+|---|---|
+| Home search: concern, city or online, language, date | `src/components/search-form.tsx` |
+| Results with filters (concerns, approach, client type, format, price, language, gender, earliest availability), sort, map view | `src/app/[lang]/psychologists/page.tsx`, `src/lib/search.ts` |
+| Shared taxonomy (labels in dictionaries) | `src/domain/taxonomy.ts` |
+| "Help me choose": 8 questions → 3–5 matches with reasons | `src/app/[lang]/match/`, `src/lib/matching.ts` |
+| Profile: video (click-to-load), bio, education, license, approaches, prices, office map, cancellation policy, live calendar, FAQ | `src/app/[lang]/psychologists/[slug]/page.tsx` |
+| Availability engine (weekly hours, time off, bookings, notice, buffer, DST-safe) | `src/lib/availability.ts` |
+| Booking: format → slot → intake → reserve → confirmation; double-booking prevented with a per-psychologist advisory lock | `src/app/[lang]/psychologists/[slug]/book/`, `src/lib/booking.ts` |
+| Free 15-minute intro call (psychologist toggle, one per client) | booking + dashboard prices form |
+| Reschedule / cancel within the psychologist's policy (late cancellations flagged) | `src/app/[lang]/account/appointments/[id]/` |
+| Receipts (printable), saved psychologists, reminder settings | `src/app/[lang]/account/*` |
+| Messaging, AES-256-GCM encrypted at rest, only after a booking | `src/lib/messaging.ts`, `src/lib/crypto.ts` |
+| Email + SMS: confirmation, 24h and 1h reminders, cancellations, `.ics` attached | `src/lib/notifications/`, `/api/cron/notifications` |
+| Calendar download | `/api/appointments/[id]/ics` |
+| Private post-session feedback (public only with explicit opt-in) | `Feedback` model, appointment page |
+
+### Running reminders
+Call the cron endpoint every 5 minutes (Vercel Cron, GitHub Actions, or cron + curl):
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/notifications
+```
+Without `RESEND_API_KEY` / `TWILIO_*` the messages are written to the server log.
 
 ### Not yet
-Email verification and password reset (need an email provider), license
-document upload, opening disputes from the client side (needs booking),
-weekly availability (booking section).
+- Online card payment: bookings are "reserve, pay at session". The `Payment`
+  model and method field are ready for a provider.
+- Psychologist-side calendar editing (weekly hours, time off) — seeded for now.
+- Video session links, email verification, password reset.
+- Map tiles use OpenStreetMap's public server; set `NEXT_PUBLIC_MAP_TILE_URL`
+  to a commercial tile provider before launch.
+- Official receipts (AADE myDATA) are issued by the psychologist, not the platform.
+
+## Conventions
+- Money is integer cents + currency; timestamps are UTC; display uses Europe/Athens.
+- Greek names are transliterated (ELOT 743) on non-Greek pages: `src/lib/slug.ts`.
 
 ### Adding a language
-1. Add the code to `locales` and its entries in `src/i18n/config.ts`.
+1. Add the code to `locales` in `src/i18n/config.ts`.
 2. Add `src/i18n/dictionaries/<code>.ts` typed as `Dictionary`.
 3. Add the value to the `Locale` enum in `prisma/schema.prisma`.
 
 ### Adding a country
 Add an entry to `markets` in `src/config/market.ts` with **verified** crisis
 line numbers, and a `Country` row in the database.
-
-## Notes
-- Search currently runs on `src/data/demo-therapists.ts` (fictional people);
-  it is shaped like the future database query.
-- Money is always integer cents + currency; timestamps are UTC.
