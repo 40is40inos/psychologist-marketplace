@@ -245,6 +245,9 @@ async function Step({
           <div className="flex items-center gap-4">
             <Avatar name={p.user.name} photoUrl={p.photoUrl} size="lg" />
             <Field id="photoFile" label={t.photo} hint={t.photoHint}>
+              <ul className="mb-3 list-disc space-y-0.5 pl-5 text-sm text-muted">
+                {t.photoTips.map((tip) => <li key={tip}>{tip}</li>)}
+              </ul>
               <input id="photoFile" name="photoFile" type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm text-ink file:mr-3 file:h-10 file:rounded-lg file:border-0 file:bg-primary-soft file:px-4 file:font-medium file:text-primary" />
             </Field>
           </div>

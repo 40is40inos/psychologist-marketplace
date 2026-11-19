@@ -124,6 +124,7 @@ export interface PsychologistCard {
   name: string;
   title: string;
   photoUrl: string | null;
+  licenseNumber: string;
   headline: string;
   city: { slug: string; name: string } | null;
   coords: { lat: number; lng: number } | null;
@@ -145,6 +146,7 @@ const cardSelect = {
   slug: true,
   title: true,
   photoUrl: true,
+  licenseNumber: true,
   practisingSince: true,
   sessionLanguages: true,
   introCallEnabled: true,
@@ -179,6 +181,7 @@ export function toCard(
     name: displayName(row.user.name, locale),
     title: titles[row.title],
     photoUrl: row.photoUrl,
+    licenseNumber: row.licenseNumber,
     headline: tr?.headline ?? "",
     city: office ? { slug: office.city.slug, name: (office.city.translations.find((t) => t.locale === locale) ?? office.city.translations[0])?.name ?? office.city.slug } : null,
     coords: office?.latitude != null && office.longitude != null ? { lat: office.latitude, lng: office.longitude } : null,

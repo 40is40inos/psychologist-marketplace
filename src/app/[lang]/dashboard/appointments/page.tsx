@@ -83,7 +83,7 @@ async function Appointments({ locale, dict, searchParams }: { locale: Locale; di
       </div>
 
       {list.length === 0 ? (
-        <EmptyState title={{ requests: t.noRequests, upcoming: t.noUpcoming, past: t.noPast }[tab]} />
+        <EmptyState scene="calendar" title={{ requests: t.noRequests, upcoming: t.noUpcoming, past: t.noPast }[tab]} />
       ) : (
         <ul className="space-y-3">
           {list.map((a) => {

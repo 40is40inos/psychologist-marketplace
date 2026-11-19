@@ -80,7 +80,7 @@ async function Account({ locale, dict, searchParams }: { locale: Locale; dict: D
           </ul>
         ) : (
           <div className="mt-3">
-            <EmptyState title={dict.account.noUpcoming} body={dict.account.noUpcomingHint}>
+            <EmptyState scene="calendar" title={dict.account.noUpcoming} body={dict.account.noUpcomingHint}>
               <Link href={`/${locale}/psychologists`} className={buttonClass.primary}>{dict.account.findCta}</Link>
             </EmptyState>
           </div>

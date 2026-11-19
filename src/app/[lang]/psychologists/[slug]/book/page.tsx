@@ -88,6 +88,7 @@ async function Book({ params, searchParams }: PageProps<"/[lang]/psychologists/[
         {type === "in_person" && p.office && (
           <p className="mt-3 text-sm text-muted">{p.office.address}, {p.office.city}</p>
         )}
+        {price > 0 && <p className="mt-3 border-t border-border pt-3 text-sm text-muted">{dict.trust.noHiddenFees}</p>}
       </section>
 
       <div className="mt-6">

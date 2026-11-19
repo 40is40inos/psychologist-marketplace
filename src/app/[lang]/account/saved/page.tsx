@@ -32,7 +32,7 @@ async function Content({ params }: { params: PageProps<"/[lang]/account/saved">[
     select: {
       psychologist: {
         select: {
-          id: true, slug: true, title: true, photoUrl: true, practisingSince: true, sessionLanguages: true,
+          id: true, slug: true, title: true, photoUrl: true, licenseNumber: true, practisingSince: true, sessionLanguages: true,
           introCallEnabled: true, bookingNoticeHours: true, bookingWindowDays: true,
           user: { select: { name: true } },
           translations: { select: { locale: true, headline: true } },
@@ -52,7 +52,7 @@ async function Content({ params }: { params: PageProps<"/[lang]/account/saved">[
       <h1 className="font-display text-2xl font-semibold text-ink">{dict.account.savedTitle}</h1>
       <div className="mt-6">
         {rows.length === 0 ? (
-          <EmptyState title={dict.account.savedEmpty} />
+          <EmptyState scene="saved" title={dict.account.savedEmpty} />
         ) : (
           <ul className="grid gap-4 md:grid-cols-2">
             {rows.map((r) => (

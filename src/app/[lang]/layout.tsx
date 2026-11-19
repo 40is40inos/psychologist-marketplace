@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Commissioner, Literata } from "next/font/google";
+import { Commissioner } from "next/font/google";
 import { notFound } from "next/navigation";
 import { brand } from "@/config/brand";
 import { isLocale, locales, ogLocale } from "@/i18n/config";
@@ -10,15 +10,10 @@ import { SiteFooter } from "@/components/site-footer";
 import { CookieBanner } from "@/components/privacy/cookie-consent";
 import "../globals.css";
 
-// Both families include Greek glyphs. Commissioner is by a Greek type designer.
+// Friendly, highly legible sans with full Greek support, by a Greek type designer.
 const commissioner = Commissioner({
   subsets: ["latin", "greek"],
   variable: "--font-commissioner",
-  display: "swap",
-});
-const literata = Literata({
-  subsets: ["latin", "greek"],
-  variable: "--font-literata",
   display: "swap",
 });
 
@@ -31,8 +26,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fbf8f3" },
-    { media: "(prefers-color-scheme: dark)", color: "#111716" },
+    { media: "(prefers-color-scheme: light)", color: "#faf8f4" },
+    { media: "(prefers-color-scheme: dark)", color: "#121816" },
   ],
 };
 
@@ -77,7 +72,7 @@ export default async function LocaleLayout({
   return (
     <html
       lang={lang}
-      className={`${commissioner.variable} ${literata.variable} h-full antialiased`}
+      className={`${commissioner.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans">
         <a

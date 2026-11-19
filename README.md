@@ -165,6 +165,17 @@ Without a key, clients pay at the session and the card option is hidden.
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/retention
 ```
 
+## Section 8 — design direction
+| Brief | How |
+|---|---|
+| Calm, warm, human | Soft warm neutrals (`--bg #faf8f4`), generous spacing, rounded-3xl cards with soft shadows; no clinical blues or hard edges |
+| One gentle accent | Sage `--primary #466b58` (6:1 with white, 5:1+ on every background). The muted clay `--accent` is only for attention states (warnings, late cancellation, destructive actions). Tokens in `src/app/globals.css`, mirrored for dark mode |
+| Friendly sans, large text | Commissioner (Latin + Greek) for body and headings; root size 106.25% (17px by default, still follows browser settings), line-height 1.6 |
+| Real photography | Larger, softly rounded portrait slots (`src/components/avatar.tsx`); photo guidance in the psychologist profile editor. Psychologists upload their own photos. The demo seed uses initials, so no stock photos of people pretend to be therapists |
+| Soft illustrations | Token-coloured line illustrations for empty states (`src/components/ui/illustrations.tsx`), wired into the shared `EmptyState` |
+| Reassuring microcopy | e.g. "It's okay not to know where to start" on the home page, gentle empty-state and no-results copy, in Greek and English |
+| Trust signals | Verified badge plus licence number on every card and profile, "We checked this licence" note, "No booking fees or hidden costs" on cards, profiles and the booking summary |
+
 ## Conventions
 - Money is integer cents + currency; timestamps are UTC; display uses Europe/Athens.
 - Greek names are transliterated (ELOT 743) on non-Greek pages: `src/lib/slug.ts`.

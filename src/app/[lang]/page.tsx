@@ -66,8 +66,8 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
               <Sparkles className="size-5" aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block font-semibold text-ink">{dict.match.cta}</span>
-              <span className="block text-sm text-muted">{dict.match.ctaBody}</span>
+              <span className="block font-semibold text-ink">{dict.home.reassure}</span>
+              <span className="block text-sm text-muted">{dict.home.reassureBody}</span>
             </span>
             <ArrowRight className="size-5 shrink-0 text-primary transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
           </Link>

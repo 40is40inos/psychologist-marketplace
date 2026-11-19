@@ -116,7 +116,7 @@ async function Users({
             ))}
           </ul>
         ) : (
-          <EmptyState title={t.empty} />
+          <EmptyState scene="people" title={t.empty} />
         )}
       </div>
     </>

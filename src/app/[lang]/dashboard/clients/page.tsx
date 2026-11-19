@@ -48,7 +48,7 @@ async function Clients({ locale, dict }: { locale: Locale; dict: Dictionary }) {
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-semibold text-ink">{t.title}</h1>
       {clients.length === 0 ? (
-        <EmptyState title={t.empty} />
+        <EmptyState scene="people" title={t.empty} />
       ) : (
         <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
           {clients.map(([id, c]) => (

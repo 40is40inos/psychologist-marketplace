@@ -95,7 +95,7 @@ export async function findMatches(a: MatchAnswers, locale: Locale, titles: Dicti
       ],
     },
     select: {
-      id: true, slug: true, title: true, photoUrl: true, practisingSince: true, sessionLanguages: true,
+      id: true, slug: true, title: true, photoUrl: true, licenseNumber: true, practisingSince: true, sessionLanguages: true,
       introCallEnabled: true, bookingNoticeHours: true, bookingWindowDays: true,
       user: { select: { name: true } },
       translations: { select: { locale: true, headline: true } },

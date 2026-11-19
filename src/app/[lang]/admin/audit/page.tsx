@@ -49,7 +49,7 @@ async function Audit({ locale, dict, searchParams }: { locale: Locale; dict: Dic
         <button type="submit" className={`${buttonClass.secondary} h-12`}>{dict.adminX.bookings.filter}</button>
       </form>
       {entries.length === 0 ? (
-        <EmptyState title={t.empty} />
+        <EmptyState scene="notes" title={t.empty} />
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
           <table className="w-full min-w-[40rem] text-sm">

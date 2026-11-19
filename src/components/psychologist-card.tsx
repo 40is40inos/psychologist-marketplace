@@ -27,20 +27,23 @@ export function PsychologistCard({
   const languageNames = c.languages.map((l) => labels?.[l] ?? dict.languages[l as keyof Dictionary["languages"]] ?? l);
 
   return (
-    <article className="relative flex h-full flex-col rounded-2xl border border-border bg-surface p-5 transition-shadow focus-within:ring-2 focus-within:ring-primary/30 hover:shadow-md">
+    <article className="relative flex h-full flex-col rounded-3xl border border-border bg-surface p-5 transition-shadow focus-within:ring-2 focus-within:ring-primary/30 hover:shadow-[0_8px_30px_-12px_rgb(31_42_38/0.18)] sm:p-6">
       <div className="flex items-start gap-4">
         <Avatar name={c.name} photoUrl={c.photoUrl} />
         <div className="min-w-0">
           <h3 className="font-display text-lg font-semibold leading-snug text-ink">
             {/* Whole card is clickable via the stretched link. */}
-            <Link href={href} className="after:absolute after:inset-0 after:rounded-2xl focus:outline-none">
+            <Link href={href} className="after:absolute after:inset-0 after:rounded-3xl focus:outline-none">
               {c.name}
             </Link>
           </h3>
           <p className="text-sm text-muted">{c.title}</p>
-          <p className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary">
-            <BadgeCheck className="size-4" aria-hidden="true" />
-            {dict.results.verified}
+          <p className="mt-1.5 inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary-soft px-2 py-0.5 font-medium text-primary">
+              <BadgeCheck className="size-3.5" aria-hidden="true" />
+              {dict.results.verified}
+            </span>
+            <span className="text-muted">{fill(dict.trust.licenseShort, { number: c.licenseNumber })}</span>
           </p>
         </div>
       </div>
@@ -85,7 +88,7 @@ export function PsychologistCard({
           </li>
         ))}
       </ul>
-      <p className="text-right text-xs text-muted">{dict.price.perSession}</p>
+      <p className="text-right text-xs text-muted">{dict.price.perSession} · {dict.trust.noFeesShort}</p>
       {footer && <div className="relative mt-4 border-t border-border pt-4">{footer}</div>}
     </article>
   );

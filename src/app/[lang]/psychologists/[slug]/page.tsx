@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Accessibility, BadgeCheck, CalendarCheck, GraduationCap, Languages, MapPin, MessageCircle, ShieldCheck, Sparkles, Star } from "lucide-react";
+import { Accessibility, BadgeCheck, CalendarCheck, GraduationCap, Languages, MapPin, MessageCircle, ShieldCheck, Sparkles, Star, ReceiptEuro } from "lucide-react";
 import { policy } from "@/config/policy";
 import { getIndicators } from "@/lib/indicators";
 import { currentMarket } from "@/config/market";
@@ -86,7 +86,8 @@ async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[s
                 <SaveButton slug={p.slug} saved={saved} locale={lang} returnTo={path} labels={{ save: t.save, saved: t.saved }} />
               )}
             </div>
-            <p className="mt-2 text-xs text-muted">{fill(t.license, { number: p.licenseNumber, authority: p.licensingAuthority })}</p>
+            <p className="mt-2 text-sm text-muted">{fill(t.license, { number: p.licenseNumber, authority: p.licensingAuthority })}</p>
+            <p className="mt-0.5 text-sm text-muted">{dict.trust.licenseChecked}</p>
           </div>
         </header>
 
@@ -142,6 +143,10 @@ async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[s
         )}
 
         <Block id="prices" title={t.prices}>
+          <p className="-mt-2 mb-4 flex items-start gap-2 text-sm text-muted">
+            <ReceiptEuro className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+            {dict.trust.noHiddenFees}
+          </p>
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
             {p.offerings.map((o) => (
               <li key={o.type} className="flex items-center justify-between gap-3 p-4">

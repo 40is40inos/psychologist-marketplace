@@ -39,7 +39,7 @@ async function Content({ params }: { params: PageProps<"/[lang]/account/receipts
       <p className="mt-1 text-sm text-muted">{t.receiptsNote}</p>
       <div className="mt-6">
         {payments.length === 0 ? (
-          <EmptyState title={t.receiptsEmpty} />
+          <EmptyState scene="receipts" title={t.receiptsEmpty} />
         ) : (
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
             {payments.map((p) => (

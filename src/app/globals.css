@@ -1,42 +1,42 @@
 @import "tailwindcss";
 
 /*
- * Design tokens. Calm, warm and plain: a deep green for actions, warm paper
- * backgrounds, one terracotta accent used sparingly. Every color has a dark
- * mode value.
+ * Design tokens (section 8): calm, warm, human. Soft warm neutrals, one
+ * gentle sage accent, generous space. The muted clay "accent" is reserved
+ * for attention states (warnings, late cancellations, destructive actions),
+ * never decoration. Every pair meets WCAG 2.1 AA; dark mode mirrors it.
  */
 :root {
-  --bg: #fbf8f3;
+  --bg: #faf8f4;
   --surface: #ffffff;
-  --surface-muted: #f4efe7;
-  --ink: #1d2827;
-  --muted: #5a6765;
-  --border: #e6dfd3;
-  --primary: #1f5c55;
-  --primary-hover: #174742;
+  --surface-muted: #f2efe8;
+  --ink: #1f2a26;
+  --muted: #5a6661;
+  --border: #e4dfd5;
+  --primary: #466b58;
+  --primary-hover: #3a5a4a;
   --primary-ink: #ffffff;
-  --primary-soft: #e2efeb;
-  /* Darkened from #b9583d to meet WCAG AA (4.5:1) on accent-soft. */
-  --accent: #a04a32;
-  --accent-soft: #f8e8e1;
-  --focus: #2f7d73;
+  --primary-soft: #e6eee8;
+  --accent: #94553a;
+  --accent-soft: #f7ebe4;
+  --focus: #5b8a72;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111716;
-    --surface: #182120;
-    --surface-muted: #1d2726;
-    --ink: #e9eeec;
-    --muted: #a1adaa;
-    --border: #2a3533;
-    --primary: #7cc3b5;
-    --primary-hover: #97d3c7;
-    --primary-ink: #0d1615;
-    --primary-soft: #1d3330;
-    --accent: #e89a80;
-    --accent-soft: #3a2620;
-    --focus: #97d3c7;
+    --bg: #121816;
+    --surface: #18201d;
+    --surface-muted: #1c2522;
+    --ink: #e8eeeb;
+    --muted: #a7b2ad;
+    --border: #2b3632;
+    --primary: #9cc7ae;
+    --primary-hover: #b4d6c2;
+    --primary-ink: #0f1714;
+    --primary-soft: #1f2d27;
+    --accent: #e3a184;
+    --accent-soft: #3a2a22;
+    --focus: #b4d6c2;
   }
 }
 
@@ -54,11 +54,15 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --font-sans: var(--font-commissioner), system-ui, sans-serif;
-  --font-display: var(--font-literata), Georgia, serif;
+  /* One friendly sans for everything; headings just use a heavier weight. */
+  --font-display: var(--font-commissioner), system-ui, sans-serif;
 }
 
 html {
   -webkit-text-size-adjust: 100%;
+  /* Large, comfortable reading size: 17px at the browser default, and it
+     still follows the visitor's own font-size setting. */
+  font-size: 106.25%;
   scroll-behavior: smooth;
 }
 
@@ -79,6 +83,7 @@ html {
 body {
   background: var(--bg);
   color: var(--ink);
+  line-height: 1.6;
   -webkit-tap-highlight-color: transparent;
 }
 

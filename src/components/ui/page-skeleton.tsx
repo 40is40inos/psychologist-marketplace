@@ -1,3 +1,5 @@
+import { Illustration, type Scene } from "./illustrations";
+
 /** Placeholder while a signed-in page checks the session and loads data. */
 export function PageSkeleton() {
   return (
@@ -10,12 +12,14 @@ export function PageSkeleton() {
   );
 }
 
-export function EmptyState({ title, body, children }: { title: string; body?: string; children?: React.ReactNode }) {
+/** Friendly empty state: a soft illustration, a reassuring line and an optional next step. */
+export function EmptyState({ title, body, children, scene }: { title: string; body?: string; children?: React.ReactNode; scene?: Scene }) {
   return (
-    <div className="rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
-      <p className="font-semibold text-ink">{title}</p>
-      {body && <p className="mt-1 text-sm text-muted">{body}</p>}
-      {children && <div className="mt-4">{children}</div>}
+    <div className="flex flex-col items-center rounded-3xl border border-border bg-surface px-6 py-10 text-center">
+      <Illustration scene={scene} />
+      <p className="mt-4 text-lg font-semibold text-ink text-balance">{title}</p>
+      {body && <p className="mt-1 max-w-md text-muted text-pretty">{body}</p>}
+      {children && <div className="mt-5">{children}</div>}
     </div>
   );
 }

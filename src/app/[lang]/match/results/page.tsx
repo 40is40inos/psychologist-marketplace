@@ -74,7 +74,7 @@ async function Results({ locale, dict, searchParams }: { locale: Locale; dict: D
 
       {matches.length === 0 ? (
         <div className="mt-8">
-          <EmptyState title={dict.match.none} body={dict.match.noneHint} />
+          <EmptyState scene="search" title={dict.match.none} body={dict.match.noneHint} />
         </div>
       ) : (
         <ol className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">

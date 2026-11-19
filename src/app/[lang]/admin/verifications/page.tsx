@@ -66,7 +66,7 @@ async function Queue({ locale, dict }: { locale: Locale; dict: Dictionary }) {
             ))}
           </ul>
         ) : (
-          <EmptyState title={t.empty} />
+          <EmptyState scene="people" title={t.empty} />
         )}
       </div>
     </>

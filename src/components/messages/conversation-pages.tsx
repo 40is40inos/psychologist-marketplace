@@ -17,7 +17,7 @@ export async function ConversationList({ user, locale, dict, base }: { user: Cur
       <h1 className="font-display text-2xl font-semibold text-ink">{dict.messages.title}</h1>
       <div className="mt-6">
         {list.length === 0 ? (
-          <EmptyState title={dict.messages.empty} />
+          <EmptyState scene="messages" title={dict.messages.empty} />
         ) : (
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
             {list.map((c) => (

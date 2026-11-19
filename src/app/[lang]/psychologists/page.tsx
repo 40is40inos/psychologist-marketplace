@@ -153,7 +153,7 @@ async function Results({
             </ul>
           ) : (
             <div className="mt-4">
-              <EmptyState title={dict.results.empty} body={dict.results.emptyHint}>
+              <EmptyState scene="search" title={dict.results.empty} body={dict.results.emptyHint}>
                 <div className="flex flex-wrap justify-center gap-2">
                   <Link href={base} className="inline-flex h-11 items-center rounded-xl border border-border px-4 font-semibold text-ink hover:border-primary">
                     {dict.results.clearFilters}

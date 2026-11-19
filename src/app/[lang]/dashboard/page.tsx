@@ -118,7 +118,7 @@ async function Overview({ locale, dict }: { locale: Locale; dict: Dictionary }) 
           </ul>
         ) : (
           <div className="mt-3">
-            <EmptyState title={t.noUpcoming}>
+            <EmptyState scene="calendar" title={t.noUpcoming}>
               <Link href={`${base}/calendar`} className={buttonClass.secondary}>{dict.workspace.nav.calendar}</Link>
             </EmptyState>
           </div>

@@ -43,7 +43,7 @@ async function Feedback({ locale, dict }: { locale: Locale; dict: Dictionary }) 
         <p className="mt-1 flex gap-2 text-sm text-muted"><Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{t.hint}</p>
       </div>
       {items.length === 0 ? (
-        <EmptyState title={t.empty} />
+        <EmptyState scene="messages" title={t.empty} />
       ) : (
         <>
           <p className="text-ink">{fill(t.average, { rating: avg.toLocaleString(intlLocale[locale], { maximumFractionDigits: 1 }), count: items.length })}</p>

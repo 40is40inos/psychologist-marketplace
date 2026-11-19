@@ -28,7 +28,7 @@ export default async function BlogPage({ params }: PageProps<"/[lang]/blog">) {
       <p className="mt-2 text-muted">{dict.blog.subtitle}</p>
       <div className="mt-8">
         {articles.length === 0 ? (
-          <EmptyState title={dict.blog.empty} />
+          <EmptyState scene="notes" title={dict.blog.empty} />
         ) : (
           <ul className="grid gap-4 sm:grid-cols-2">
             {articles.map((a) => (

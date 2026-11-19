@@ -113,7 +113,7 @@ async function Bookings({ locale, dict, searchParams }: { locale: Locale; dict: 
       </p>
 
       {rows.length === 0 ? (
-        <EmptyState title={t.empty} />
+        <EmptyState scene="calendar" title={t.empty} />
       ) : (
         <ul className="space-y-3">
           {rows.map((a) => {
