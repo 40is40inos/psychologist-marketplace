@@ -46,6 +46,7 @@ async function Form({ locale, dict, searchParams }: { locale: Locale; dict: Dict
       languages={taxonomy.languages}
       cities={cities}
       initial={initial}
+      safety={{ urgentHelp: dict.urgentHelp, risk: dict.risk }}
     />
   );
 }

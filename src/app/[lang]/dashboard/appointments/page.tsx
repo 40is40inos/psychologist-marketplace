@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { MapPin, MessageCircle, Video } from "lucide-react";
+import { LifeBuoy, MapPin, MessageCircle, Video } from "lucide-react";
 import { appointmentAction, markPaid } from "@/actions/appointments";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
@@ -113,6 +113,12 @@ async function Appointments({ locale, dict, searchParams }: { locale: Locale; di
                   </span>
                 </div>
 
+                {a.intakeRisk && (
+                  <p role="note" className="mt-3 flex gap-2 rounded-xl border border-accent/40 bg-accent-soft p-3 text-sm font-medium text-ink">
+                    <LifeBuoy className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
+                    {dict.risk.flagged}
+                  </p>
+                )}
                 {intake && (intake.reason || intake.notes || intake.firstTime) && (
                   <details className="mt-3 rounded-xl bg-surface-muted/60 p-3 text-sm">
                     <summary className="cursor-pointer font-medium text-ink">{t.intake}</summary>

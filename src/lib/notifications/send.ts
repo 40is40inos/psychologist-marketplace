@@ -20,7 +20,7 @@ export async function processDueNotifications(limit = 50): Promise<{ sent: numbe
     orderBy: { scheduledFor: "asc" },
     take: limit,
     include: {
-      user: { select: { email: true, phone: true, locale: true, name: true } },
+      user: { select: { email: true, phone: true, locale: true, name: true, smsHideBrand: true } },
       appointment: {
         include: {
           client: { select: { name: true } },
@@ -58,6 +58,8 @@ export async function processDueNotifications(limit = 50): Promise<{ sent: numbe
       if (!tpl || !a) throw new Error(`No template or appointment for ${n.kind}`);
 
       const office = a.psychologist.offices[0];
+      // The address goes only into the calendar file (needed to get there);
+      // emails and SMS stay neutral: no names, no session type, no address.
       const where =
         a.sessionType === "in_person" && office
           ? `${office.addressLine}, ${office.postalCode} ${office.city.translations.find((x) => x.locale === n.user.locale)?.name ?? ""}`
@@ -71,6 +73,7 @@ export async function processDueNotifications(limit = 50): Promise<{ sent: numbe
         where,
         url: `${brand.siteUrl}/${n.user.locale}/${n.kind === "psychologist_new_booking" ? "dashboard/appointments" : "account"}`,
         brand: brand.name,
+        brandPrefix: n.user.smsHideBrand ? "" : `${brand.name}: `,
       };
 
       if (n.channel === "sms") {
@@ -83,7 +86,7 @@ export async function processDueNotifications(limit = 50): Promise<{ sent: numbe
           subject: fill(tpl.subject, vars),
           text: [fill(tpl.body, vars), "", fill(t.details, vars), "", fill(t.footer, vars)].join("\n"),
           attachments: withIcs
-            ? [{ filename: "session.ics", contentType: "text/calendar; charset=utf-8", content: appointmentIcs(a, vars, n.kind === "cancellation") }]
+            ? [{ filename: "session.ics", contentType: "text/calendar; charset=utf-8", content: appointmentIcs(a, { title: t.icsTitle, where, url: vars.url }, n.kind === "cancellation") }]
             : undefined,
         });
       }

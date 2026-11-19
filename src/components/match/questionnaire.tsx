@@ -3,6 +3,7 @@
 import { useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Dictionary } from "@/i18n/get-dictionary";
+import { RiskSupport } from "@/components/crisis-notice";
 
 type Q = Dictionary["match"];
 const CLIENT_TYPES = ["individuals", "couples", "families", "children", "adolescents"] as const;
@@ -69,6 +70,7 @@ export function Questionnaire({
   languages,
   cities,
   initial,
+  safety,
 }: {
   action: string;
   t: Q;
@@ -77,7 +79,11 @@ export function Questionnaire({
   languages: { slug: string; label: string }[];
   cities: { slug: string; name: string }[];
   initial: Record<string, string | string[] | undefined>;
+  safety: Pick<Dictionary, "urgentHelp" | "risk">;
 }) {
+  // The safety answer is never submitted; it only reveals support immediately.
+  const [safetyAnswer, setSafetyAnswer] = useState<"" | "no" | "sometimes" | "often">(initial.support ? "sometimes" : "");
+  const atRisk = safetyAnswer === "sometimes" || safetyAnswer === "often";
   // false during server render and hydration, true once JavaScript runs.
   const enhanced = useSyncExternalStore(noopSubscribe, () => true, () => false);
   const [step, setStep] = useState(0);
@@ -129,6 +135,24 @@ export function Questionnaire({
             );
           })}
         </div>
+        <fieldset className="mt-6 space-y-2 rounded-2xl border border-border p-4">
+          <legend className="px-1 text-sm font-medium text-ink">{t.questions.safety}</legend>
+          <p className="text-xs text-muted">{t.questions.safetyHint}</p>
+          <div className="flex flex-wrap gap-2">
+            {(["no", "sometimes", "often"] as const).map((v) => (
+              <label key={v} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm text-ink has-[:checked]:border-primary has-[:checked]:bg-primary-soft/60">
+                <input type="radio" checked={safetyAnswer === v} onChange={() => setSafetyAnswer(v)} className="size-4 accent-[var(--primary)]" />
+                {t.options.safety[v]}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+        {atRisk && (
+          <>
+            <input type="hidden" name="support" value="1" />
+            <RiskSupport dict={safety} id="match-risk" />
+          </>
+        )}
       </Step>
 
       <Step i={2} title={t.questions.format} {...common}>

@@ -1,10 +1,14 @@
 import { brand } from "@/config/brand";
 import { buildIcs } from "@/lib/ics";
 
-/** .ics for an appointment, shared by emails and the download route. */
+/**
+ * .ics for an appointment, shared by emails and the download route.
+ * Discreet by design: a neutral title ("Appointment"), no names, no session
+ * type, so nothing sensitive shows up in shared or synced calendars.
+ */
 export function appointmentIcs(
   a: { id: string; startsAt: Date; endsAt: Date; icsSequence: number },
-  v: { name: string; format: string; where: string; url: string },
+  v: { title: string; where?: string; url: string },
   cancelled = false,
 ): string {
   const host = new URL(brand.siteUrl).hostname;
@@ -14,8 +18,8 @@ export function appointmentIcs(
       sequence: a.icsSequence,
       start: a.startsAt,
       end: a.endsAt,
-      summary: `${v.format} · ${v.name}`,
-      description: `${v.format} · ${v.name}\n${v.url}`,
+      summary: v.title,
+      description: v.url,
       location: v.where,
       url: v.url,
       cancelled,

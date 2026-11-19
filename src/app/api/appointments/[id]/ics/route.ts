@@ -31,9 +31,8 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/appointments/[i
   const ics = appointmentIcs(
     a,
     {
-      name: isClient ? a.psychologist.user.name : a.client.name,
-      format: a.kind === "intro_call" ? dict.booking.introCall : dict.sessionTypes[a.sessionType].label,
-      where: a.sessionType === "in_person" && office ? `${office.addressLine}, ${office.postalCode}` : dict.notifications.online,
+      title: dict.notifications.icsTitle,
+      where: a.sessionType === "in_person" && office ? `${office.addressLine}, ${office.postalCode}` : undefined,
       url: `${brand.siteUrl}/${user.locale}/${isClient ? "account" : "dashboard"}`,
     },
     a.status.startsWith("cancelled"),

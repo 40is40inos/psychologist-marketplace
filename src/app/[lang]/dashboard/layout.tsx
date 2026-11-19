@@ -22,6 +22,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
           { href: `${base}/messages`, label: n.messages },
           { href: `${base}/payments`, label: n.payments },
           { href: `${base}/analytics`, label: n.analytics },
+          { href: `${base}/feedback`, label: n.feedback },
           { href: `${base}/profile`, label: n.profile },
           { href: `${base}/plan`, label: n.plan },
         ]}

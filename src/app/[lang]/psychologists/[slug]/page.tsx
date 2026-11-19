@@ -1,7 +1,9 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { Accessibility, BadgeCheck, GraduationCap, Languages, MapPin, ShieldCheck, Sparkles, Star } from "lucide-react";
+import { Accessibility, BadgeCheck, CalendarCheck, GraduationCap, Languages, MapPin, MessageCircle, ShieldCheck, Sparkles, Star } from "lucide-react";
+import { policy } from "@/config/policy";
+import { getIndicators } from "@/lib/indicators";
 import { currentMarket } from "@/config/market";
 import { intlLocale, isLocale, locales, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
@@ -55,7 +57,7 @@ async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[s
   const saved =
     user?.role === "client" &&
     !!(await db.savedPsychologist.findUnique({ where: { userId_psychologistId: { userId: user.id, psychologistId: p.id } } }));
-  const options = await buildSlotOptions(p, dict, lang);
+  const [options, indicators] = await Promise.all([buildSlotOptions(p, dict, lang), getIndicators(p.id)]);
   // Count views from everyone except the psychologist themselves.
   if (user?.role !== "psychologist") track([p.id], "views");
   const embed = videoEmbed(p.videoUrl);
@@ -188,6 +190,24 @@ async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[s
           </Block>
         )}
 
+        {(indicators.replyHours !== null || indicators.heldRate !== null) && (
+          <Block id="indicators" title={dict.indicators.title}>
+            <ul className="space-y-2 text-ink">
+              {indicators.replyHours !== null && (
+                <li className="flex gap-2"><MessageCircle className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+                  {indicators.replyHours <= 12 ? fill(dict.indicators.replies, { hours: Math.max(1, Math.ceil(indicators.replyHours)) }) : dict.indicators.repliesDay}
+                </li>
+              )}
+              {indicators.heldRate !== null && (
+                <li className="flex gap-2"><CalendarCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+                  {fill(dict.indicators.held, { percent: new Intl.NumberFormat(intlLocale[lang], { style: "percent", maximumFractionDigits: 0 }).format(indicators.heldRate) })}
+                </li>
+              )}
+            </ul>
+            <p className="mt-2 text-xs text-muted">{dict.indicators.basis}</p>
+          </Block>
+        )}
+
         <Block id="cancellation" title={t.cancellation}>
           <p className="flex gap-2 text-ink">
             <ShieldCheck className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
@@ -195,7 +215,7 @@ async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[s
           </p>
         </Block>
 
-        {p.reviews.length > 0 && (
+        {policy.publicTestimonials && p.reviews.length > 0 && (
           <Block id="reviews" title={dict.reviewsPublic.title}>
             <p className="mb-3 flex items-center gap-2 text-sm text-muted">
               <Star className="size-4 fill-current text-primary" aria-hidden="true" />

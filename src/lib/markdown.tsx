@@ -53,7 +53,8 @@ export function Markdown({ source }: { source: string }) {
         if (h && lines.length === 1) {
           const level = h[1].length;
           const cls = level === 1 ? "font-display text-3xl font-semibold" : level === 2 ? "mt-8 font-display text-2xl font-semibold" : "mt-6 text-xl font-semibold";
-          const Tag = (level === 1 ? "h2" : level === 2 ? "h3" : "h4") as "h2";
+          // The page title is the h1, so # and ## both become h2 and ### h3: no skipped levels.
+          const Tag = (level <= 2 ? "h2" : "h3") as "h2";
           return <Tag key={key} className={cls}>{inline(h[2], key)}</Tag>;
         }
         if (lines.every((l) => /^\s*[-*]\s+/.test(l))) {

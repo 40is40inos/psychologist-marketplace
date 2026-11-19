@@ -9,6 +9,7 @@ import { fill, formatList, formatPrice, formatShortDate } from "@/lib/format";
 import { findMatches, parseAnswers, type Reason } from "@/lib/matching";
 import { getTaxonomy } from "@/lib/taxonomy-data";
 import { PsychologistCard } from "@/components/psychologist-card";
+import { RiskSupport } from "@/components/crisis-notice";
 import { buttonClass } from "@/components/ui/form";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 
@@ -59,6 +60,11 @@ async function Results({ locale, dict, searchParams }: { locale: Locale; dict: D
 
   return (
     <>
+      {sp.support && (
+        <div className="mb-8">
+          <RiskSupport dict={dict} id="results-risk" />
+        </div>
+      )}
       <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">{dict.match.resultsTitle}</h1>
       <p className="mt-2 max-w-2xl text-muted">{dict.match.resultsSubtitle}</p>
       <div className="mt-4 flex flex-wrap gap-2">

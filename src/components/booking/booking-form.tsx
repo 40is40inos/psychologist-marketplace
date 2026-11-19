@@ -1,25 +1,31 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { Wallet } from "lucide-react";
 import { bookAction, type BookingState } from "@/actions/booking";
 import type { Dictionary } from "@/i18n/get-dictionary";
 import { Field, FormAlert, textareaClass } from "@/components/ui/form";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { RiskSupport } from "@/components/crisis-notice";
+import { suggestsRisk } from "@/lib/risk";
 
 export function BookingForm({
   hidden,
   t,
   priceLabel,
   backHref,
+  safety,
 }: {
   hidden: Record<string, string>;
   t: Dictionary["booking"];
   priceLabel: string;
   backHref: string;
+  safety: Pick<Dictionary, "urgentHelp" | "risk">;
 }) {
   const [state, action] = useActionState<BookingState, FormData>(bookAction, {});
+  const [text, setText] = useState({ reason: "", notes: "" });
+  const risk = suggestsRisk(text.reason, text.notes);
   const error = state.error ? t.errors[state.error] : null;
 
   return (
@@ -43,7 +49,7 @@ export function BookingForm({
           <p className="text-sm text-muted">{t.intakeIntro}</p>
         </div>
         <Field id="reason" label={t.reason} hint={t.reasonHint}>
-          <textarea id="reason" name="reason" rows={3} maxLength={1000} className={textareaClass} aria-describedby="reason-hint" />
+          <textarea id="reason" name="reason" rows={3} maxLength={1000} className={textareaClass} aria-describedby="reason-hint" onChange={(e) => setText((t) => ({ ...t, reason: e.target.value }))} />
         </Field>
         <fieldset>
           <legend className="mb-2 text-sm font-medium text-ink">{t.firstTime}</legend>
@@ -57,8 +63,9 @@ export function BookingForm({
           </div>
         </fieldset>
         <Field id="notes" label={t.notes} hint={t.notesHint}>
-          <textarea id="notes" name="notes" rows={2} maxLength={1000} className={textareaClass} aria-describedby="notes-hint" />
+          <textarea id="notes" name="notes" rows={2} maxLength={1000} className={textareaClass} aria-describedby="notes-hint" onChange={(e) => setText((t) => ({ ...t, notes: e.target.value }))} />
         </Field>
+        {risk && <RiskSupport dict={safety} id="intake-risk" />}
       </section>
 
       <section aria-labelledby="payment" className="space-y-3">

@@ -72,8 +72,9 @@ export async function moderateReview(fd: FormData): Promise<void> {
     .parse(Object.fromEntries(fd));
   const f = await db.feedback.findUnique({ where: { id }, select: { publicConsent: true, psychologist: { select: { slug: true } } } });
   if (!f) return;
-  // Never publish feedback the client didn't agree to share.
-  const status = decision === "approved" && !f.publicConsent ? "rejected" : decision;
+  // "approved" = reviewed and visible to the psychologist. It is only shown
+  // publicly when testimonials are enabled AND the client consented.
+  const status = decision;
   await db.$transaction(async (tx) => {
     await tx.feedback.update({ where: { id }, data: { moderationStatus: status, moderationNote: note || null, moderatedAt: new Date(), moderatedById: admin.id } });
     await audit(tx, admin.id, status === "approved" ? "review.approve" : "review.reject", "Feedback", id);

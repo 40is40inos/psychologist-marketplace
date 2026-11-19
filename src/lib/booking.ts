@@ -4,6 +4,7 @@ import { INTRO_CALL_MINUTES, isSlotFree } from "@/lib/availability";
 import { encrypt } from "@/lib/crypto";
 import { cancelPendingReminders, queueCancellationEmail, queueNotification, scheduleBookingNotifications } from "@/lib/notifications/schedule";
 import { track } from "@/lib/analytics";
+import { suggestsRisk } from "@/lib/risk";
 import type { SessionType } from "@/domain/session-types";
 import type { Locale } from "@/i18n/config";
 
@@ -79,6 +80,7 @@ export async function createBooking(input: {
           locale: input.locale,
           paymentMethod: "pay_at_session",
           intakeEncrypted: input.intake.reason || input.intake.notes ? encrypt(JSON.stringify(input.intake)) : null,
+          intakeRisk: suggestsRisk(input.intake.reason, input.intake.notes),
           payment: {
             create: { amountCents: priceCents, method: "pay_at_session", status: priceCents === 0 ? "waived" : "pending" },
           },
@@ -176,6 +178,7 @@ export async function rescheduleBooking(clientId: string, appointmentId: string,
           locale: a.locale,
           paymentMethod: a.paymentMethod,
           intakeEncrypted: a.intakeEncrypted,
+          intakeRisk: a.intakeRisk,
           rescheduledFromId: a.id,
         },
         select: { id: true, startsAt: true },

@@ -7,7 +7,7 @@ import type { Dictionary } from "@/i18n/get-dictionary";
 import { FormAlert, textareaClass } from "@/components/ui/form";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export function FeedbackForm({ appointmentId, locale, t }: { appointmentId: string; locale: string; t: Dictionary["account"] }) {
+export function FeedbackForm({ appointmentId, locale, t, allowPublic = false }: { appointmentId: string; locale: string; t: Dictionary["account"]; allowPublic?: boolean }) {
   const [state, action] = useActionState<SimpleState, FormData>(submitFeedback, {});
   if (state.ok) return <FormAlert tone="success">{t.feedbackThanks}</FormAlert>;
 
@@ -35,10 +35,12 @@ export function FeedbackForm({ appointmentId, locale, t }: { appointmentId: stri
         <span className="mb-1.5 block text-sm font-medium text-ink">{t.comment}</span>
         <textarea name="comment" rows={3} maxLength={2000} className={textareaClass} />
       </label>
-      <label className="flex gap-3 text-sm text-ink">
-        <input type="checkbox" name="publicConsent" className="mt-0.5 size-5 shrink-0 accent-[var(--primary)]" />
-        {t.publicConsent}
-      </label>
+      {allowPublic && (
+        <label className="flex gap-3 text-sm text-ink">
+          <input type="checkbox" name="publicConsent" className="mt-0.5 size-5 shrink-0 accent-[var(--primary)]" />
+          {t.publicConsent}
+        </label>
+      )}
       {/* The only user-fixable error is a missing rating. */}
       {state.error && <FormAlert>{t.rating}</FormAlert>}
       <SubmitButton>{t.sendFeedback}</SubmitButton>

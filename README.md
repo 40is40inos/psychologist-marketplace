@@ -107,6 +107,17 @@ myDATA: confirm the VAT exemption and income classification codes with an accoun
 
 The seeded privacy/terms/cookies pages are templates and must be reviewed by legal counsel.
 
+## Section 6 — mental-health safeguards
+| Requirement | How |
+|---|---|
+| Crisis safety | "Need urgent help?" link in the header of every page → `/[lang]/urgent-help` (static, tap-to-call 112 / 1018 / 10306); crisis notice in the footer and the booking flow; "not an emergency service" stated everywhere |
+| Risk signals | `src/lib/risk.ts` (Greek + English, accent-insensitive) flags intake text live and on save; optional safety question in "Help me choose" (answer never stored). Crisis resources appear immediately; psychologists see a risk note on the booking |
+| Reviews policy | Feedback is private by default (`src/config/policy.ts`, `PUBLIC_TESTIMONIALS=false`). Psychologists see it without client names; profiles show only aggregated indicators (reply time, % held as scheduled) above minimum sample sizes |
+| Discretion | Neutral email subjects and bodies (no names, therapy words or session types), neutral calendar titles, optional "no platform name" in SMS, neutral card-statement descriptor (`PAYMENT_STATEMENT_DESCRIPTOR`) |
+| Accessibility | WCAG 2.1 AA: AA contrast on all colour tokens (light + dark), labelled controls, skip link, `lang` per page and per text block, logical headings, 320px reflow, reduced-motion support |
+
+Pick a brand name and card-statement descriptor that don't reveal the service ("psych", "therapy").
+
 ### Running reminders
 Call the cron endpoint every 5 minutes (Vercel Cron, GitHub Actions, or cron + curl):
 ```bash

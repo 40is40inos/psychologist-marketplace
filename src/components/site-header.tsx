@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { LifeBuoy, Menu, X } from "lucide-react";
 import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/get-dictionary";
 import { LanguageSwitcher, LanguageSwitcherFallback } from "./language-switcher";
@@ -18,7 +18,9 @@ export function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary 
   return (
     <header className="sticky top-0 z-30 print:hidden border-b border-border bg-bg/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
-        <Logo locale={locale} />
+        <div className="min-w-0 flex-1 md:flex-none">
+          <Logo locale={locale} />
+        </div>
 
         <nav aria-label={dict.a11y.mainNav} className="hidden items-center gap-6 md:flex">
           {links.map((link) => (
@@ -29,6 +31,14 @@ export function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary 
         </nav>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {/* Always reachable, but quiet: an icon on phones, short text on wider screens. */}
+          <Link
+            href={`/${locale}/urgent-help`}
+            className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-accent hover:bg-accent-soft"
+          >
+            <LifeBuoy className="size-4" aria-hidden="true" />
+            <span className="sr-only lg:not-sr-only">{dict.urgentHelp.link}</span>
+          </Link>
           {/* The switcher reads the URL, so it streams in; the fallback links to each home page. */}
           <Suspense fallback={<LanguageSwitcherFallback current={locale} label={dict.a11y.changeLanguage} />}>
             <LanguageSwitcher current={locale} label={dict.a11y.changeLanguage} />

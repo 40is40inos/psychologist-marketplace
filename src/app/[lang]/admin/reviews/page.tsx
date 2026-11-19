@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Lock, Star } from "lucide-react";
 import { moderateReview } from "@/actions/admin-x";
+import { policy } from "@/config/policy";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { requireRole } from "@/lib/auth/session";
@@ -77,10 +78,12 @@ async function Reviews({ locale, dict, searchParams }: { locale: Locale; dict: D
                 </p>
               </div>
               {f.comment && <p className="mt-3 whitespace-pre-line rounded-xl bg-surface-muted/60 p-3 text-sm text-ink">{f.comment}</p>}
-              <p className={`mt-3 flex items-center gap-1.5 text-xs font-medium ${f.publicConsent ? "text-primary" : "text-muted"}`}>
-                {!f.publicConsent && <Lock className="size-3.5" aria-hidden="true" />}
-                {f.publicConsent ? t.consent : t.noConsent}
-              </p>
+              {policy.publicTestimonials && (
+                <p className={`mt-3 flex items-center gap-1.5 text-xs font-medium ${f.publicConsent ? "text-primary" : "text-muted"}`}>
+                  {!f.publicConsent && <Lock className="size-3.5" aria-hidden="true" />}
+                  {f.publicConsent ? t.consent : t.noConsent}
+                </p>
+              )}
               {f.moderationNote && <p className="mt-1 text-xs text-muted">{t.note}: {f.moderationNote}</p>}
               <form action={moderateReview} className="mt-4 flex flex-wrap items-end gap-2">
                 <input type="hidden" name="id" value={f.id} />
@@ -88,7 +91,7 @@ async function Reviews({ locale, dict, searchParams }: { locale: Locale; dict: D
                   <span className="mb-1 block text-xs text-muted">{t.note}</span>
                   <input name="note" maxLength={300} defaultValue={f.moderationNote ?? ""} className={inputClass} />
                 </label>
-                {f.publicConsent && tab !== "approved" && <SubmitButton name="decision" value="approved">{t.approve}</SubmitButton>}
+                {tab !== "approved" && <SubmitButton name="decision" value="approved">{t.approve}</SubmitButton>}
                 {tab !== "rejected" && <SubmitButton name="decision" value="rejected" variant="danger">{t.reject}</SubmitButton>}
               </form>
             </li>

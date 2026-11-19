@@ -16,6 +16,7 @@ import { Avatar } from "@/components/avatar";
 import { SessionTypeIcon } from "@/components/session-type-icon";
 import { BookingForm } from "@/components/booking/booking-form";
 import { buttonClass } from "@/components/ui/form";
+import { CrisisNotice } from "@/components/crisis-notice";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
 export const metadata: Metadata = { robots: { index: false } };
@@ -87,6 +88,10 @@ async function Book({ params, searchParams }: PageProps<"/[lang]/psychologists/[
         )}
       </section>
 
+      <div className="mt-6">
+        <CrisisNotice dict={dict} locale={lang} id="booking-crisis" compact />
+      </div>
+
       <div className="mt-8">
         {!user ? (
           <div className="rounded-2xl border border-border bg-surface-muted p-5">
@@ -103,6 +108,7 @@ async function Book({ params, searchParams }: PageProps<"/[lang]/psychologists/[
             t={t}
             priceLabel={priceLabel}
             backHref={profilePath}
+            safety={{ urgentHelp: dict.urgentHelp, risk: dict.risk }}
             hidden={{ slug, type, kind, start: start.toISOString(), locale: lang }}
           />
         )}

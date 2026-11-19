@@ -8,6 +8,7 @@ import { encrypt } from "@/lib/crypto";
 import { getCurrentUser } from "@/lib/auth/session";
 import { rateLimit } from "@/lib/auth/rate-limit";
 import { defaultLocale, isLocale } from "@/i18n/config";
+import { policy } from "@/config/policy";
 
 export interface SimpleState {
   ok?: boolean;
@@ -54,7 +55,7 @@ export async function submitFeedback(_prev: SimpleState, fd: FormData): Promise<
       psychologistId: a.psychologistId,
       rating,
       comment: comment || null,
-      publicConsent: fd.get("publicConsent") === "on",
+      publicConsent: policy.publicTestimonials && fd.get("publicConsent") === "on",
     },
   });
   refresh();
@@ -108,7 +109,7 @@ export async function saveReminderSettings(_prev: SimpleState, fd: FormData): Pr
   const phone = parsed.data.phone && !parsed.data.phone.startsWith("+") ? `+30${parsed.data.phone}` : parsed.data.phone;
   await db.user.update({
     where: { id: user.id },
-    data: { phone: phone || null, smsReminders, emailReminders: fd.get("emailReminders") === "on" },
+    data: { phone: phone || null, smsReminders, emailReminders: fd.get("emailReminders") === "on", smsHideBrand: fd.get("smsHideBrand") === "on" },
   });
   refresh();
   return { ok: true, at: Date.now() };

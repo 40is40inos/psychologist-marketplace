@@ -18,7 +18,7 @@ export function Logo({ locale }: { locale: Locale }) {
           <path d="M8 8.5h.01M16 8.5h.01" />
         </svg>
       </span>
-      {brand.name}
+      <span className="truncate">{brand.name}</span>
     </Link>
   );
 }

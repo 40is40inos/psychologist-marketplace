@@ -85,6 +85,7 @@ export async function psychologistReschedule(psychologistId: string, appointment
           locale: a.locale,
           paymentMethod: a.paymentMethod,
           intakeEncrypted: a.intakeEncrypted,
+          intakeRisk: a.intakeRisk,
           rescheduledFromId: a.id,
         },
       });

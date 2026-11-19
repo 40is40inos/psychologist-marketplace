@@ -14,6 +14,8 @@ import { fill, formatPrice, formatShortDate, formatTime } from "@/lib/format";
 import { hoursUntil } from "@/lib/time";
 import { SessionTypeIcon } from "@/components/session-type-icon";
 import { FeedbackForm } from "@/components/account/feedback-form";
+import { RiskSupport } from "@/components/crisis-notice";
+import { policy } from "@/config/policy";
 import { buttonClass, FormAlert } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -82,6 +84,7 @@ async function Appointment({ params, searchParams }: PageProps<"/[lang]/account/
         </section>
       )}
       {sp.rescheduled && <FormAlert tone="success">{t.rescheduled}</FormAlert>}
+      {a.intakeRisk && (a.status === "pending" || a.status === "confirmed") && <RiskSupport dict={dict} id="appointment-risk" />}
 
       <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
         {!sp.booked && <h1 className="font-display text-2xl font-semibold text-ink">{fill(t.with, { name })}</h1>}
@@ -171,7 +174,7 @@ async function Appointment({ params, searchParams }: PageProps<"/[lang]/account/
         <section id="feedback" aria-labelledby="feedback-title" className="scroll-mt-24 rounded-2xl border border-border bg-surface p-5 sm:p-6">
           <h2 id="feedback-title" className="text-lg font-semibold text-ink">{fill(t.feedbackTitle, { name })}</h2>
           <div className="mt-3">
-            {a.feedback ? <p className="text-muted">{t.feedbackGiven}</p> : <FeedbackForm appointmentId={a.id} locale={lang} t={t} />}
+            {a.feedback ? <p className="text-muted">{t.feedbackGiven}</p> : <FeedbackForm appointmentId={a.id} locale={lang} t={t} allowPublic={policy.publicTestimonials} />}
           </div>
         </section>
       )}

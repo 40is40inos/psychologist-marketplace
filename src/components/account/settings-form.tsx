@@ -12,7 +12,7 @@ export function SettingsForm({
   t,
 }: {
   locale: string;
-  values: { phone: string; emailReminders: boolean; smsReminders: boolean };
+  values: { phone: string; emailReminders: boolean; smsReminders: boolean; smsHideBrand: boolean };
   t: Dictionary["account"];
 }) {
   const { state, onSubmit, isPending } = useKeepValuesAction<SimpleState>(saveReminderSettings, {});
@@ -29,6 +29,11 @@ export function SettingsForm({
         <input type="checkbox" name="smsReminders" defaultChecked={values.smsReminders} className="mt-0.5 size-5 shrink-0 accent-[var(--primary)]" />
         <span className="text-ink">{t.smsReminders}</span>
       </label>
+      <label className="flex gap-3 rounded-2xl border border-border bg-surface p-4">
+        <input type="checkbox" name="smsHideBrand" defaultChecked={values.smsHideBrand} className="mt-0.5 size-5 shrink-0 accent-[var(--primary)]" />
+        <span className="text-ink">{t.smsHideBrand}</span>
+      </label>
+      <p className="text-sm text-muted">{t.discreetNote}</p>
       <Field id="phone" label={t.phone} hint={t.phoneHint} error={phoneError}>
         <input id="phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" defaultValue={values.phone} className={inputClass} {...describedBy("phone", { error: phoneError, hint: t.phoneHint })} />
       </Field>
