@@ -1,0 +1,88 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Calm, warm and plain: a deep green for actions, warm paper
+ * backgrounds, one terracotta accent used sparingly. Every color has a dark
+ * mode value.
+ */
+:root {
+  --bg: #fbf8f3;
+  --surface: #ffffff;
+  --surface-muted: #f4efe7;
+  --ink: #1d2827;
+  --muted: #5a6765;
+  --border: #e6dfd3;
+  --primary: #1f5c55;
+  --primary-hover: #174742;
+  --primary-ink: #ffffff;
+  --primary-soft: #e2efeb;
+  --accent: #b9583d;
+  --accent-soft: #f8e8e1;
+  --focus: #2f7d73;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111716;
+    --surface: #182120;
+    --surface-muted: #1d2726;
+    --ink: #e9eeec;
+    --muted: #a1adaa;
+    --border: #2a3533;
+    --primary: #7cc3b5;
+    --primary-hover: #97d3c7;
+    --primary-ink: #0d1615;
+    --primary-soft: #1d3330;
+    --accent: #e89a80;
+    --accent-soft: #3a2620;
+    --focus: #97d3c7;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-ink: var(--primary-ink);
+  --color-primary-soft: var(--primary-soft);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --font-sans: var(--font-commissioner), system-ui, sans-serif;
+  --font-display: var(--font-literata), Georgia, serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Hide the default disclosure marker on the mobile menu. */
+summary::-webkit-details-marker {
+  display: none;
+}
+summary {
+  list-style: none;
+}

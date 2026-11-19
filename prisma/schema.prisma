@@ -1,0 +1,246 @@
+// Data model foundation (section 1: market, languages, currency, session types).
+// Later sections extend this: availability, booking flow, payments, reviews,
+// messaging, admin verification.
+//
+// Conventions
+// - Money is stored as integer cents with an explicit currency (EUR for now).
+// - All timestamps are stored in UTC; display uses the market's time zone.
+// - Translatable text lives in *Translation tables keyed by locale, so adding
+//   a language needs no schema change.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Locale {
+  el
+  en
+}
+
+enum Currency {
+  EUR
+}
+
+enum SessionType {
+  in_person
+  video
+  phone
+}
+
+enum UserRole {
+  patient
+  therapist
+  admin
+}
+
+enum ProfessionalTitle {
+  psychologist
+  psychotherapist
+  clinical_psychologist
+  counselling_psychologist
+}
+
+enum VerificationStatus {
+  pending
+  verified
+  rejected
+  suspended
+}
+
+enum AppointmentStatus {
+  pending
+  confirmed
+  cancelled_by_patient
+  cancelled_by_therapist
+  completed
+  no_show
+}
+
+/// Markets the platform operates in. Greece first, more EU countries later.
+model Country {
+  code     String   @id @db.Char(2) // ISO 3166-1 alpha-2
+  currency Currency @default(EUR)
+  timeZone String // IANA, e.g. Europe/Athens
+  enabled  Boolean  @default(false)
+
+  cities     City[]
+  therapists TherapistProfile[]
+}
+
+model City {
+  id          String @id @default(cuid())
+  countryCode String @db.Char(2)
+  slug        String
+  latitude    Float?
+  longitude   Float?
+
+  country      Country           @relation(fields: [countryCode], references: [code])
+  translations CityTranslation[]
+  offices      Office[]
+
+  @@unique([countryCode, slug])
+}
+
+model CityTranslation {
+  cityId String
+  locale Locale
+  name   String
+
+  city City @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@id([cityId, locale])
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  emailVerifiedAt DateTime?
+  name            String?
+  phone           String?
+  role            UserRole  @default(patient)
+  /// UI and email language preference.
+  locale          Locale    @default(el)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  /// Soft delete for GDPR erasure requests; personal fields are scrubbed.
+  deletedAt       DateTime?
+
+  therapistProfile TherapistProfile?
+  appointments     Appointment[]     @relation("PatientAppointments")
+}
+
+model TherapistProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  slug               String             @unique
+  countryCode        String             @db.Char(2)
+  title              ProfessionalTitle
+  /// License to practise, checked by an admin before the profile is public.
+  licenseNumber      String
+  licensingAuthority String
+  verificationStatus VerificationStatus @default(pending)
+  verifiedAt         DateTime?
+  practisingSince    Int?
+  photoUrl           String?
+  /// Languages the therapist can hold sessions in (ISO 639-1 codes).
+  sessionLanguages   String[]
+  published          Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user         User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  country      Country                       @relation(fields: [countryCode], references: [code])
+  translations TherapistProfileTranslation[]
+  offerings    SessionOffering[]
+  offices      Office[]
+  specialties  TherapistSpecialty[]
+  appointments Appointment[]
+
+  @@index([countryCode, verificationStatus, published])
+}
+
+/// Per-language profile text. A therapist may write in one or both languages.
+model TherapistProfileTranslation {
+  therapistId String
+  locale      Locale
+  headline    String
+  bio         String  @db.Text
+  approach    String? @db.Text
+
+  therapist TherapistProfile @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@id([therapistId, locale])
+}
+
+/// A bookable session format with its own duration and price.
+model SessionOffering {
+  id              String      @id @default(cuid())
+  therapistId     String
+  type            SessionType
+  durationMinutes Int         @default(50)
+  priceCents      Int
+  currency        Currency    @default(EUR)
+  active          Boolean     @default(true)
+  /// Required for in-person sessions.
+  officeId        String?
+
+  therapist TherapistProfile @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  office    Office?          @relation(fields: [officeId], references: [id])
+
+  @@index([type, active])
+}
+
+model Office {
+  id                   String  @id @default(cuid())
+  therapistId          String
+  cityId               String
+  addressLine          String
+  postalCode           String
+  latitude             Float?
+  longitude            Float?
+  /// Accessibility details matter for in-person care.
+  wheelchairAccessible Boolean @default(false)
+
+  therapist TherapistProfile  @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  city      City              @relation(fields: [cityId], references: [id])
+  offerings SessionOffering[]
+}
+
+/// Concerns and approaches (anxiety, CBT, ...). Shared taxonomy, translated.
+model Specialty {
+  id           String                 @id @default(cuid())
+  slug         String                 @unique
+  kind         String // "concern" | "approach" | "population"
+  translations SpecialtyTranslation[]
+  therapists   TherapistSpecialty[]
+}
+
+model SpecialtyTranslation {
+  specialtyId String
+  locale      Locale
+  name        String
+
+  specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([specialtyId, locale])
+}
+
+model TherapistSpecialty {
+  therapistId String
+  specialtyId String
+
+  therapist TherapistProfile @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  specialty Specialty        @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+
+  @@id([therapistId, specialtyId])
+}
+
+/// Minimal appointment record. Booking rules come in a later section.
+model Appointment {
+  id          String            @id @default(cuid())
+  patientId   String
+  therapistId String
+  sessionType SessionType
+  status      AppointmentStatus @default(pending)
+  startsAt    DateTime // UTC
+  endsAt      DateTime // UTC
+  /// Snapshot of the price at booking time, so later price changes don't
+  /// rewrite history.
+  priceCents  Int
+  currency    Currency          @default(EUR)
+  /// Language the session will be held in.
+  locale      Locale
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  patient   User             @relation("PatientAppointments", fields: [patientId], references: [id])
+  therapist TherapistProfile @relation(fields: [therapistId], references: [id])
+
+  @@index([therapistId, startsAt])
+  @@index([patientId, startsAt])
+}
