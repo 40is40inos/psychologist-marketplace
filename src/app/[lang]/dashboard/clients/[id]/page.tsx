@@ -11,6 +11,7 @@ import { decrypt } from "@/lib/crypto";
 import { formatShortDate, formatTime } from "@/lib/format";
 import { requirePsychologist } from "@/lib/workspace";
 import { hoursUntil } from "@/lib/time";
+import { logAccess } from "@/lib/audit";
 import { AppointmentRow } from "@/components/appointment-row";
 import { ActionForm } from "@/components/ui/action-form";
 import { buttonClass, textareaClass, inputClass } from "@/components/ui/form";
@@ -39,7 +40,7 @@ async function Client({ params }: PageProps<"/[lang]/dashboard/clients/[id]">) {
   const { lang, id } = await params;
   if (!isLocale(lang)) notFound();
   const dict = await getDictionary(lang);
-  const { profileId } = await requirePsychologist(lang, `/${lang}/dashboard/clients/${id}`);
+  const { user, profileId } = await requirePsychologist(lang, `/${lang}/dashboard/clients/${id}`);
   const t = dict.clientsPage;
 
   const appts = await db.appointment.findMany({
@@ -54,6 +55,7 @@ async function Client({ params }: PageProps<"/[lang]/dashboard/clients/[id]">) {
     db.conversation.findUnique({ where: { clientId_psychologistId: { clientId: id, psychologistId: profileId } }, select: { id: true } }),
   ]);
   const name = appts[0].client.name;
+  logAccess(user.id, "client_record.view", "User", id);
   const latestIntake = appts.map((a) => read(a.intakeEncrypted)).find(Boolean);
   const intake = latestIntake ? (JSON.parse(latestIntake) as { reason?: string; notes?: string }) : null;
 

@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
  * Small, safe Markdown renderer for CMS content. Produces React elements
  * (never raw HTML), so admin-written text can't inject scripts.
  * Supports: # ## ### headings, paragraphs, - / * lists, 1. lists, > quotes,
- * **bold**, *italic*, `code`, [links](https://…).
+ * | tables |, **bold**, *italic*, `code`, [links](https://…).
  */
 function safeHref(url: string): string | null {
   if (/^(https?:\/\/|mailto:|\/)/i.test(url) && !/^\/\//.test(url)) return url;
@@ -69,6 +69,25 @@ export function Markdown({ source }: { source: string }) {
             <ol key={key} className="list-decimal space-y-1 pl-6">
               {lines.map((l, i) => <li key={i}>{inline(l.replace(/^\s*\d+\.\s+/, ""), `${key}-${i}`)}</li>)}
             </ol>
+          );
+        }
+        // | a | b | tables with a |---| separator row; scrolls sideways on phones.
+        if (lines.length >= 2 && lines.every((l) => l.trim().startsWith("|")) && /^\s*\|[\s:|-]+\|\s*$/.test(lines[1])) {
+          const cells = (l: string) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
+          const [head, , ...rows] = lines;
+          return (
+            <div key={key} className="overflow-x-auto rounded-xl border border-border">
+              <table className="w-full text-left text-base">
+                <thead className="bg-surface-muted">
+                  <tr>{cells(head).map((c, i) => <th key={i} scope="col" className="px-3 py-2 font-semibold">{inline(c, `${key}-h${i}`)}</th>)}</tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {rows.map((r, ri) => (
+                    <tr key={ri}>{cells(r).map((c, i) => <td key={i} className="px-3 py-2 align-top">{inline(c, `${key}-${ri}-${i}`)}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           );
         }
         if (lines.every((l) => l.startsWith(">"))) {

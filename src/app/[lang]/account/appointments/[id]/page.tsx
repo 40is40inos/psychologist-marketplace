@@ -3,9 +3,10 @@ import { displayName } from "@/lib/slug";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CalendarPlus, CalendarClock, CheckCircle2, MapPin, MessageCircle, Receipt, Video } from "lucide-react";
+import { CalendarPlus, CalendarClock, CheckCircle2, CreditCard, MapPin, MessageCircle, Receipt, Video } from "lucide-react";
 import { joinWindow } from "@/lib/video";
-import { cancelAction } from "@/actions/booking";
+import { cancelAction, resumePayment } from "@/actions/booking";
+import { brand } from "@/config/brand";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { requireRole } from "@/lib/auth/session";
@@ -84,6 +85,26 @@ async function Appointment({ params, searchParams }: PageProps<"/[lang]/account/
         </section>
       )}
       {sp.rescheduled && <FormAlert tone="success">{t.rescheduled}</FormAlert>}
+      {sp.paid && (
+        <FormAlert tone="success">
+          {a.payment?.status === "authorized" || a.status === "pending" ? dict.pay.authorized : dict.pay.paid}{" "}
+          {fill(dict.pay.statement, { descriptor: brand.statementDescriptor })}
+        </FormAlert>
+      )}
+      {sp.payment === "cancelled" && a.status === "awaiting_payment" && <FormAlert>{dict.pay.cancelled}</FormAlert>}
+      {a.status === "awaiting_payment" && (
+        <section className="rounded-2xl border border-primary/30 bg-primary-soft p-5">
+          <p className="text-ink">{sp.paid ? dict.pay.redirecting : dict.pay.holdNote}</p>
+          <form action={resumePayment} className="mt-3">
+            <input type="hidden" name="locale" value={lang} />
+            <input type="hidden" name="appointmentId" value={a.id} />
+            <SubmitButton>
+              <CreditCard className="size-4" aria-hidden="true" />
+              {dict.pay.retry}
+            </SubmitButton>
+          </form>
+        </section>
+      )}
       {a.intakeRisk && (a.status === "pending" || a.status === "confirmed") && <RiskSupport dict={dict} id="appointment-risk" />}
 
       <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">

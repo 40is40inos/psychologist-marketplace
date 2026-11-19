@@ -19,6 +19,7 @@ export interface AppointmentRowData {
 }
 
 const statusTone: Record<AppointmentRowData["status"], string> = {
+  awaiting_payment: "bg-surface-muted text-muted",
   pending: "bg-surface-muted text-muted",
   confirmed: "bg-primary-soft text-primary",
   completed: "bg-surface-muted text-muted",

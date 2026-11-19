@@ -5,6 +5,8 @@ import { encrypt } from "@/lib/crypto";
 import { cancelPendingReminders, queueCancellationEmail, queueNotification, scheduleBookingNotifications } from "@/lib/notifications/schedule";
 import { track } from "@/lib/analytics";
 import { suggestsRisk } from "@/lib/risk";
+import { CHECKOUT_HOLD_MINUTES } from "@/lib/payments";
+import { settleCardPayment } from "@/lib/card-booking";
 import type { SessionType } from "@/domain/session-types";
 import type { Locale } from "@/i18n/config";
 
@@ -39,6 +41,8 @@ export async function createBooking(input: {
   start: Date;
   intake: Intake;
   locale: Locale;
+  /** Pay by card now: the slot is held until the checkout completes. */
+  payOnline?: boolean;
 }) {
   return db.$transaction(
     async (tx) => {
@@ -67,26 +71,31 @@ export async function createBooking(input: {
       const priceCents = input.kind === "intro_call" ? 0 : offering.priceCents;
       // Intro calls are free and never need approval.
       const needsApproval = profile.requiresApproval && input.kind === "session";
+      const online = Boolean(input.payOnline) && priceCents > 0;
       const appointment = await tx.appointment.create({
         data: {
           clientId: input.clientId,
           psychologistId: profile.id,
           sessionType: input.type,
           kind: input.kind,
-          status: needsApproval ? "pending" : "confirmed",
+          status: online ? "awaiting_payment" : needsApproval ? "pending" : "confirmed",
           startsAt: input.start,
           endsAt: new Date(input.start.getTime() + duration * 60_000),
           priceCents,
           locale: input.locale,
-          paymentMethod: "pay_at_session",
+          paymentMethod: online ? "card" : "pay_at_session",
           intakeEncrypted: input.intake.reason || input.intake.notes ? encrypt(JSON.stringify(input.intake)) : null,
           intakeRisk: suggestsRisk(input.intake.reason, input.intake.notes),
           payment: {
-            create: { amountCents: priceCents, method: "pay_at_session", status: priceCents === 0 ? "waived" : "pending" },
+            create: online
+              ? { amountCents: priceCents, method: "card", status: "pending", provider: "stripe", expiresAt: new Date(Date.now() + CHECKOUT_HOLD_MINUTES * 60_000) }
+              : { amountCents: priceCents, method: "pay_at_session", status: priceCents === 0 ? "waived" : "pending" },
           },
         },
         select: { id: true, startsAt: true },
       });
+      // Card bookings stay invisible to the psychologist until paid (src/lib/card-booking.ts).
+      if (online) return { ...appointment, pending: needsApproval, online, priceCents, psychologistId: profile.id };
 
       // Messaging opens once there is a booking.
       await tx.conversation.upsert({
@@ -106,7 +115,7 @@ export async function createBooking(input: {
         await scheduleBookingNotifications(tx, { appointmentId: appointment.id, startsAt: appointment.startsAt, user }, "booking_confirmation");
       }
       await queueNotification(tx, profile.userId, appointment.id, "psychologist_new_booking");
-      return { ...appointment, pending: needsApproval, psychologistId: profile.id };
+      return { ...appointment, pending: needsApproval, online, priceCents, psychologistId: profile.id };
     },
     { timeout: 15_000 },
   ).then((a) => {
@@ -121,10 +130,10 @@ function hoursUntil(d: Date): number {
 }
 
 export async function cancelBooking(clientId: string, appointmentId: string) {
-  return db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
     const a = await tx.appointment.findFirst({
       where: { id: appointmentId, clientId, status: { in: ["pending", "confirmed"] } },
-      select: { id: true, startsAt: true, kind: true, psychologist: { select: { cancellationHours: true } } },
+      select: { id: true, startsAt: true, kind: true, priceCents: true, psychologist: { select: { cancellationHours: true, lateCancellationFeePercent: true } } },
     });
     if (!a || hoursUntil(a.startsAt) <= 0) throw new BookingFailure("not_allowed");
     const late = a.kind === "session" && hoursUntil(a.startsAt) < a.psychologist.cancellationHours;
@@ -137,8 +146,11 @@ export async function cancelBooking(clientId: string, appointmentId: string) {
     if (!late) await tx.payment.updateMany({ where: { appointmentId: a.id, status: "pending" }, data: { status: "waived" } });
     await cancelPendingReminders(tx, a.id);
     await queueCancellationEmail(tx, clientId, a.id);
-    return { late };
+    return { late, fee: late ? Math.round((a.priceCents * a.psychologist.lateCancellationFeePercent) / 100) : 0, price: a.priceCents };
   });
+  // Card payments: release the authorisation, or refund minus any late fee.
+  await settleCardPayment(appointmentId, "cancelled", result.price - result.fee);
+  return result;
 }
 
 /** Move a session to a new slot. Only allowed before the free-cancellation window closes. */

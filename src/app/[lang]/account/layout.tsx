@@ -20,6 +20,7 @@ export default async function AccountLayout({ children, params }: LayoutProps<"/
           { href: `${base}/saved`, label: t.saved },
           { href: `${base}/receipts`, label: t.receipts },
           { href: `${base}/settings`, label: t.settings },
+          { href: `${base}/privacy`, label: t.privacy },
         ]}
       />
       <div className="mt-8">{children}</div>

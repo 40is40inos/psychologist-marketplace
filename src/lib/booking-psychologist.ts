@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { isSlotFree } from "@/lib/availability";
 import { BookingFailure } from "@/lib/booking";
+import { settleCardPayment } from "@/lib/card-booking";
 import { cancelPendingReminders, queueNotification, scheduleBookingNotifications } from "@/lib/notifications/schedule";
 
 /**
@@ -13,6 +14,13 @@ type Action = "accept" | "decline" | "no_show" | "complete" | "cancel";
 const clientPrefs = { id: true, phone: true, emailReminders: true, smsReminders: true } as const;
 
 export async function psychologistAction(psychologistId: string, appointmentId: string, action: Action) {
+  await applyAction(psychologistId, appointmentId, action);
+  // Card payments: capture on accept; release or fully refund otherwise.
+  if (action === "accept") await settleCardPayment(appointmentId, "accepted");
+  if (action === "decline" || action === "cancel") await settleCardPayment(appointmentId, "cancelled");
+}
+
+async function applyAction(psychologistId: string, appointmentId: string, action: Action) {
   return db.$transaction(async (tx) => {
     const a = await tx.appointment.findFirst({
       where: { id: appointmentId, psychologistId },

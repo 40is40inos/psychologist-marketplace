@@ -43,6 +43,9 @@ export async function UserMenu({ locale, dict }: { locale: Locale; dict: Diction
         <Link href={`/${locale}${homePathFor(user.role)}`} className="block rounded-lg px-3 py-2.5 text-sm font-medium text-ink hover:bg-surface-muted">
           {homeLabel}
         </Link>
+        <Link href={`/${locale}/security`} className="block rounded-lg px-3 py-2.5 text-sm font-medium text-ink hover:bg-surface-muted">
+          {dict.twoFactor.security}
+        </Link>
         <form action={signOut}>
           <input type="hidden" name="locale" value={locale} />
           <button type="submit" className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-ink hover:bg-surface-muted">

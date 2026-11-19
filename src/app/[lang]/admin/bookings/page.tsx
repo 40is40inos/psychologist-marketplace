@@ -155,7 +155,7 @@ async function Bookings({ locale, dict, searchParams }: { locale: Locale; dict: 
                       <summary className="cursor-pointer text-sm font-medium text-accent">{t.refund}</summary>
                       <div className="mt-2 rounded-xl border border-accent/30 bg-accent-soft/50 p-3">
                         <p className="mb-2 text-xs text-muted">{t.refundHint}</p>
-                        <ActionForm action={refundPayment} submitLabel={t.refundConfirm} savedLabel={dict.workspace.saved} errors={{ invalid: dict.workspace.saveError, tooMuch: t.refundTooMuch, reason: t.reasonRequired }} variant="secondary" className="grid gap-3 sm:grid-cols-[8rem_1fr_auto] sm:items-end">
+                        <ActionForm action={refundPayment} submitLabel={t.refundConfirm} savedLabel={dict.workspace.saved} errors={{ invalid: dict.workspace.saveError, tooMuch: t.refundTooMuch, provider: t.refundFailed, reason: t.reasonRequired }} variant="secondary" className="grid gap-3 sm:grid-cols-[8rem_1fr_auto] sm:items-end">
                           <input type="hidden" name="paymentId" value={pay.id} />
                           <label className="block"><span className="mb-1 block text-xs text-muted">{t.refundAmount}</span><input name="amount" type="number" step="0.01" min="0.01" defaultValue={(pay.amountCents - pay.refundedCents) / 100} className={inputClass} /></label>
                           <label className="block"><span className="mb-1 block text-xs text-muted">{t.refundReason}</span><input name="reason" required maxLength={500} className={inputClass} /></label>

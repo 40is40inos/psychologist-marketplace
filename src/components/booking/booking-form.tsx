@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import Link from "next/link";
-import { Wallet } from "lucide-react";
+import { CreditCard, Wallet } from "lucide-react";
 import { bookAction, type BookingState } from "@/actions/booking";
 import type { Dictionary } from "@/i18n/get-dictionary";
 import { Field, FormAlert, textareaClass } from "@/components/ui/form";
@@ -16,13 +16,17 @@ export function BookingForm({
   priceLabel,
   backHref,
   safety,
+  card,
 }: {
   hidden: Record<string, string>;
   t: Dictionary["booking"];
   priceLabel: string;
   backHref: string;
   safety: Pick<Dictionary, "urgentHelp" | "risk">;
+  /** Shown when card payments are configured and the session has a price. */
+  card?: { t: Dictionary["pay"]; statement: string; approval: boolean };
 }) {
+  const [method, setMethod] = useState<"pay_at_session" | "card">("pay_at_session");
   const [state, action] = useActionState<BookingState, FormData>(bookAction, {});
   const [text, setText] = useState({ reason: "", notes: "" });
   const risk = suggestsRisk(text.reason, text.notes);
@@ -70,8 +74,26 @@ export function BookingForm({
 
       <section aria-labelledby="payment" className="space-y-3">
         <h2 id="payment" className="text-lg font-semibold text-ink">{t.payment}</h2>
-        <label className="flex gap-3 rounded-2xl border border-primary bg-primary-soft/50 p-4">
-          <input type="radio" name="paymentMethod" value="pay_at_session" defaultChecked className="mt-1 size-4 accent-[var(--primary)]" />
+        {card && (
+          <label className="flex cursor-pointer gap-3 rounded-2xl border border-border bg-surface p-4 has-[:checked]:border-primary has-[:checked]:bg-primary-soft/50">
+            <input type="radio" name="paymentMethod" value="card" checked={method === "card"} onChange={() => setMethod("card")} className="mt-1 size-4 accent-[var(--primary)]" />
+            <CreditCard className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
+            <span className="flex-1">
+              <span className="flex justify-between gap-3 font-medium text-ink">
+                {card.t.online}
+                <span className="tabular-nums">{priceLabel}</span>
+              </span>
+              <span className="block text-sm text-muted">{card.t.onlineBody}</span>
+              {method === "card" && (
+                <span className="mt-1 block text-sm text-muted">
+                  {card.approval ? card.t.authorized : card.t.holdNote} {card.statement}
+                </span>
+              )}
+            </span>
+          </label>
+        )}
+        <label className="flex cursor-pointer gap-3 rounded-2xl border border-border bg-surface p-4 has-[:checked]:border-primary has-[:checked]:bg-primary-soft/50">
+          <input type="radio" name="paymentMethod" value="pay_at_session" checked={method === "pay_at_session"} onChange={() => setMethod("pay_at_session")} className="mt-1 size-4 accent-[var(--primary)]" />
           <Wallet className="mt-0.5 size-5 shrink-0 text-primary" aria-hidden="true" />
           <span className="flex-1">
             <span className="flex justify-between gap-3 font-medium text-ink">
@@ -88,7 +110,7 @@ export function BookingForm({
         {t.consent}
       </label>
 
-      <SubmitButton className="w-full">{t.confirm}</SubmitButton>
+      <SubmitButton className="w-full">{method === "card" && card ? card.t.retry : t.confirm}</SubmitButton>
     </form>
   );
 }

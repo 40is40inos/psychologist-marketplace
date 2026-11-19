@@ -9,6 +9,7 @@ import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/get-dictionary";
 import { describedBy, Field, FormAlert, inputClass } from "@/components/ui/form";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { LEGAL_PAGES } from "@/config/legal";
 
 type FieldName = keyof Dictionary["auth"]["fieldErrors"];
 
@@ -18,12 +19,14 @@ export function SignUpForm({
   next,
   t,
   titles,
+  legal,
 }: {
   locale: Locale;
   initialRole: SignupRole;
   next?: string;
   t: Dictionary["auth"];
   titles: Dictionary["titles"];
+  legal: Dictionary["legal"];
 }) {
   const [state, action] = useActionState<AuthFormState, FormData>(signUp, {});
   const [role, setRole] = useState<SignupRole>(
@@ -117,12 +120,49 @@ export function SignUpForm({
             className="mt-0.5 size-5 shrink-0 accent-[var(--primary)]"
             aria-invalid={err("consent") ? true : undefined}
           />
-          <span>{t.consent}</span>
+          <span>
+            <LegalSentence template={role === "psychologist" ? legal.agreePsychologist : legal.agreeClient} legal={legal} locale={locale} psychologist={role === "psychologist"} />
+          </span>
         </label>
         {err("consent") && <p className="mt-1.5 text-sm text-accent">{err("consent")}</p>}
       </div>
 
+      {/* Health data is a special category (GDPR Art. 9): explicit, separate consent. */}
+      {role === "client" && (
+        <div>
+          <label className="flex gap-3 text-sm text-ink">
+            <input type="checkbox" name="healthConsent" required defaultChecked={v.healthConsent === "on"} className="mt-0.5 size-5 shrink-0 accent-[var(--primary)]" aria-invalid={err("consent") ? true : undefined} />
+            <span>{legal.healthConsent}</span>
+          </label>
+        </div>
+      )}
+
       <SubmitButton className="w-full">{t.submitSignUp}</SubmitButton>
     </form>
+  );
+}
+
+/** "I agree to the {terms}, the {cancellation} and the {privacy}." with links (new tab, so the form isn't lost). */
+function LegalSentence({ template, legal, locale, psychologist }: { template: string; legal: Dictionary["legal"]; locale: Locale; psychologist: boolean }) {
+  const links: Record<string, [string, string]> = {
+    terms: [psychologist ? legal.termsPsychologists : legal.terms, psychologist ? LEGAL_PAGES.termsPsychologists : LEGAL_PAGES.terms],
+    cancellation: [legal.cancellation, LEGAL_PAGES.cancellation],
+    privacy: [legal.privacy, LEGAL_PAGES.privacy],
+  };
+  return (
+    <>
+      {template.split(/(\{\w+\})/g).map((part, i) => {
+        const key = part.slice(1, -1);
+        if (part.startsWith("{") && links[key]) {
+          const [label, slug] = links[key];
+          return (
+            <a key={i} href={`/${locale}/p/${slug}`} target="_blank" rel="noreferrer" className="font-medium text-primary underline underline-offset-2">
+              {label}
+            </a>
+          );
+        }
+        return part;
+      })}
+    </>
   );
 }

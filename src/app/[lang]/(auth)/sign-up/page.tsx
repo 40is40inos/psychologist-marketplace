@@ -60,6 +60,7 @@ async function Form({
       next={safeNext}
       t={dict.auth}
       titles={dict.titles}
+      legal={dict.legal}
     />
   );
 }

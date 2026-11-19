@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/session";
 import { readStored } from "@/lib/storage";
+import { logAccess } from "@/lib/audit";
 
 /** Verification documents: only the psychologist who uploaded them and admins. */
 export async function GET(_req: Request, ctx: RouteContext<"/api/documents/[id]">) {
@@ -14,6 +15,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/documents/[id]"
   });
   if (!doc || (doc.psychologist.userId !== user.id && user.role !== "admin")) return new Response("Not found", { status: 404 });
 
+  logAccess(user.id, "document.view", "Document", id, { role: user.role });
   const body = await readStored(doc.storageKey);
   return new Response(new Uint8Array(body), {
     headers: {

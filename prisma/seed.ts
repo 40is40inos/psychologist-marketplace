@@ -18,6 +18,7 @@ import en from "../src/i18n/dictionaries/en";
 import el from "../src/i18n/dictionaries/el";
 import { cities, psychologists, toMinutes } from "./seed-data";
 import { content } from "./seed-content";
+import { legalContent, TEMPLATE_NOTE } from "./seed-legal";
 
 if (process.env.NODE_ENV === "production") throw new Error("Refusing to seed in production");
 
@@ -98,6 +99,9 @@ async function main() {
 
   const admin = await user(adminEmail, "Admin", "admin", "en");
   const client = await user("client@example.test", "Άννα Δημητρίου", "client");
+  if ((await db.consentRecord.count({ where: { userId: client.id } })) === 0) {
+    await db.consentRecord.createMany({ data: (["terms", "privacy", "health_data"] as const).map((kind) => ({ userId: client.id, kind, version: "2026-11" })) });
+  }
 
   // ── Verified psychologists ──
   const profiles = new Map<string, { id: string; offerings: { type: "in_person" | "video" | "phone"; priceCents: number; minutes: number }[] }>();
@@ -290,9 +294,22 @@ async function main() {
   }
 
   // ── CMS starter content (only created if missing, so admin edits survive) ──
-  for (const c of content) {
-    const exists = await db.contentPage.findUnique({ where: { kind_slug: { kind: c.kind, slug: c.slug } } });
-    if (exists) continue;
+  for (const c of [...content, ...legalContent]) {
+    const exists = await db.contentPage.findUnique({ where: { kind_slug: { kind: c.kind, slug: c.slug } }, include: { translations: true } });
+    if (exists) {
+      // Refresh legal templates nobody has edited yet (they still start with the template note).
+      const untouched = exists.translations.length > 0 && exists.translations.every((t) => t.body.startsWith(TEMPLATE_NOTE[t.locale as "el" | "en"]));
+      if (legalContent.includes(c) && untouched) {
+        for (const locale of ["el", "en"] as const) {
+          await db.contentTranslation.upsert({
+            where: { pageId_locale: { pageId: exists.id, locale } },
+            create: { pageId: exists.id, locale, title: c[locale].title, body: c[locale].body },
+            update: { title: c[locale].title, body: c[locale].body },
+          });
+        }
+      }
+      continue;
+    }
     await db.contentPage.create({
       data: {
         kind: c.kind, slug: c.slug, status: "published", publishedAt: new Date(), authorId: admin.id,

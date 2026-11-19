@@ -32,6 +32,7 @@ export interface PublicProfile {
   offerings: { type: SessionType; durationMinutes: number; priceCents: number }[];
   office: { address: string; postalCode: string; city: string; lat: number | null; lng: number | null; wheelchair: boolean } | null;
   introCall: boolean;
+  requiresApproval: boolean;
   cancellationHours: number;
   lateFeePercent: number;
   bookingNoticeHours: number;
@@ -105,6 +106,7 @@ export async function getPublicProfile(slug: string, locale: Locale): Promise<Pu
         }
       : null,
     introCall: p.introCallEnabled,
+    requiresApproval: p.requiresApproval,
     cancellationHours: p.cancellationHours,
     lateFeePercent: p.lateCancellationFeePercent,
     bookingNoticeHours: p.bookingNoticeHours,

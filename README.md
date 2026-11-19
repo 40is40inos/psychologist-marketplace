@@ -126,13 +126,44 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cro
 Without `RESEND_API_KEY` / `TWILIO_*` the messages are written to the server log.
 
 ### Not yet
-- Online card payment: bookings are "reserve, pay at session". The `Payment`
-  model and method field are ready for a provider.
-- Psychologist-side calendar editing (weekly hours, time off) — seeded for now.
-- Video session links, email verification, password reset.
+- Email verification and password reset.
 - Map tiles use OpenStreetMap's public server; set `NEXT_PUBLIC_MAP_TILE_URL`
-  to a commercial tile provider before launch.
-- Official receipts (AADE myDATA) are issued by the psychologist, not the platform.
+  to a commercial (EU-hosted) tile provider before launch.
+- Payouts to psychologists from card payments (Stripe Connect or manual bank
+  transfers) are not automated yet.
+
+## Section 7 — compliance and security
+| Requirement | How |
+|---|---|
+| GDPR consent | Separate, explicit Art. 9 health-data consent at client sign-up; every consent stored as a versioned `ConsentRecord` (`LEGAL_VERSION` in `src/config/legal.ts`). Withdrawing it blocks booking and messaging. Manage in *Account → Privacy* (psychologists/admins: *Security*) |
+| Minimisation | Hourly `/api/cron/retention` deletes expired sessions, video signalling (1 day), search logs (13 months), notification logs (12 months) and releases unpaid card holds |
+| Export / deletion | `/api/account/export` (JSON, decrypted); self-service deletion anonymises the account and deletes messages, intake answers, feedback text and saved items; receipts kept without the name, as tax law requires |
+| Cookie banner | Essential cookies only by default; maps/videos load only after "Allow" (equal-weight buttons, changeable later). Third-party map tiles are click-to-load without consent |
+| Privacy policy | DPA-ready template (`prisma/seed-legal.ts`): controller vs processor roles, Art. 6/9 legal bases, EU processors table, transfers, retention table, rights, HDPA complaint route |
+| EU data residency | Deploy app, database and file storage in an EU region (e.g. Frankfurt); Stripe Payments Europe (Ireland); choose EU regions for email/SMS/video. Fill in the processors table in the privacy policy |
+| Encryption | AES-256-GCM at rest for session notes, intake answers, messages, tax IDs, IBANs, myDATA credentials and TOTP secrets (`DATA_ENCRYPTION_KEY`); HSTS + TLS everywhere; strict security headers and CSP (`next.config.ts`) |
+| Access control | Role permissions in `src/domain/roles.ts`; append-only audit log of views of client records, intake answers, documents, exports, deletions and 2FA changes (`/[lang]/admin/audit`) |
+| 2FA | TOTP (RFC 6238) with QR setup and 10 one-time recovery codes; **mandatory** for psychologists and admins (`TWO_FACTOR_ENFORCE`), optional for clients |
+| Payments | Stripe Checkout (hosted page, PCI SAQ A, SCA/3-D Secure): card data never touches our servers. Slot held 30 min while paying; approval-required bookings authorise and capture on accept, release on decline; refunds (client cancellation minus late fee, psychologist cancellation, admin) go back to the card. Webhook `/api/webhooks/stripe` verifies signatures and is idempotent |
+| Terms | Client terms, psychologist terms with an Art. 28 data-processing agreement, cancellation/refund policy, cookie policy, linked at sign-up and in the footer |
+
+All legal pages are **templates for legal review**. The seed refreshes a legal
+page only while it still begins with the template note, so CMS edits survive.
+
+### Enabling card payments
+1. Set `STRIPE_SECRET_KEY` (test key first) and `PAYMENT_STATEMENT_DESCRIPTOR`.
+2. Add a webhook endpoint for `https://your-domain/api/webhooks/stripe` with
+   `checkout.session.completed`, `checkout.session.expired`,
+   `checkout.session.async_payment_succeeded` and `checkout.session.async_payment_failed`;
+   put its signing secret in `STRIPE_WEBHOOK_SECRET`.
+3. Locally: `stripe listen --forward-to localhost:3000/api/webhooks/stripe`.
+
+Without a key, clients pay at the session and the card option is hidden.
+
+### Running retention
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/retention
+```
 
 ## Conventions
 - Money is integer cents + currency; timestamps are UTC; display uses Europe/Athens.

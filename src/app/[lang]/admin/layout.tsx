@@ -34,6 +34,7 @@ export default async function AdminLayout({ children, params }: LayoutProps<"/[l
             { href: `${base}/taxonomy`, label: dict.adminX.nav.taxonomy },
             { href: `${base}/content`, label: dict.adminX.nav.content },
             { href: `${base}/analytics`, label: dict.adminX.nav.analytics },
+            { href: `${base}/audit`, label: dict.adminX.nav.audit },
             { href: `${base}/plans`, label: dict.adminPlans.title },
           ]}
         />

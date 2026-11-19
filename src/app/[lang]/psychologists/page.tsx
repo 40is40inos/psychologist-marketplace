@@ -139,7 +139,7 @@ async function Results({
           {view === "map" && (
             <div className="mt-4 space-y-2">
               <p className="text-sm text-muted">{dict.filters.mapNote}</p>
-              {points.length ? <LazyMap points={points} /> : <EmptyState title={dict.filters.noMapResults} />}
+              {points.length ? <LazyMap points={points} labels={dict.cookies} /> : <EmptyState title={dict.filters.noMapResults} />}
             </div>
           )}
 

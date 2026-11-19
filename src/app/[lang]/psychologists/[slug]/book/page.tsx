@@ -12,6 +12,8 @@ import { INTRO_CALL_MINUTES } from "@/lib/availability";
 import { fill, formatPrice, formatShortDate, formatTime } from "@/lib/format";
 import { getPublicProfile } from "@/lib/profile";
 import { track } from "@/lib/analytics";
+import { cardPaymentsEnabled } from "@/lib/payments";
+import { brand } from "@/config/brand";
 import { Avatar } from "@/components/avatar";
 import { SessionTypeIcon } from "@/components/session-type-icon";
 import { BookingForm } from "@/components/booking/booking-form";
@@ -110,6 +112,11 @@ async function Book({ params, searchParams }: PageProps<"/[lang]/psychologists/[
             backHref={profilePath}
             safety={{ urgentHelp: dict.urgentHelp, risk: dict.risk }}
             hidden={{ slug, type, kind, start: start.toISOString(), locale: lang }}
+            card={
+              cardPaymentsEnabled() && price > 0
+                ? { t: dict.pay, statement: fill(dict.pay.statement, { descriptor: brand.statementDescriptor }), approval: p.requiresApproval }
+                : undefined
+            }
           />
         )}
       </div>

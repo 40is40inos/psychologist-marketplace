@@ -10,6 +10,8 @@
 // Section 5: admin panel: review moderation, editable taxonomy and
 //            languages, CMS (blog + static pages), search log, refunds.
 // Section 6: risk flag on intake, SMS discretion setting.
+// Section 7: consent records (GDPR Art. 7/9), TOTP two-factor auth,
+//            card payments (Stripe Checkout) with expiring holds.
 //
 // Conventions
 // - Money is stored as integer cents with an explicit currency (EUR for now).
@@ -69,6 +71,8 @@ enum VerificationStatus {
 }
 
 enum AppointmentStatus {
+  /// Card checkout in progress: holds the slot, not yet visible to the psychologist.
+  awaiting_payment
   pending
   confirmed
   cancelled_by_client
@@ -103,6 +107,8 @@ enum PaymentMethod {
 
 enum PaymentStatus {
   pending
+  /// Card authorised (manual capture), charged when the psychologist accepts.
+  authorized
   paid
   refunded
   waived
@@ -218,27 +224,31 @@ model CityTranslation {
 // ─── Users and auth ─────────────────────────────────────────────────────────
 
 model User {
-  id              String     @id @default(cuid())
-  email           String     @unique
-  emailVerifiedAt DateTime?
+  id                  String     @id @default(cuid())
+  email               String     @unique
+  emailVerifiedAt     DateTime?
   /// scrypt hash, see src/lib/auth/password.ts.
-  passwordHash    String
-  name            String
-  phone           String?
-  role            UserRole   @default(client)
-  status          UserStatus @default(active)
+  passwordHash        String
+  name                String
+  phone               String?
+  role                UserRole   @default(client)
+  status              UserStatus @default(active)
   /// UI and email language preference.
-  locale          Locale     @default(el)
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  lastSignInAt    DateTime?
+  locale              Locale     @default(el)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  lastSignInAt        DateTime?
   /// Reminder preferences. SMS needs a phone number.
-  emailReminders  Boolean    @default(true)
-  smsReminders    Boolean    @default(false)
+  emailReminders      Boolean    @default(true)
+  smsReminders        Boolean    @default(false)
   /// Leave the platform name out of SMS, for discretion.
-  smsHideBrand    Boolean    @default(false)
+  smsHideBrand        Boolean    @default(false)
+  /// TOTP two-factor auth. Secret is encrypted; recovery codes are SHA-256 hashes.
+  totpSecretEncrypted String?
+  totpEnabledAt       DateTime?
+  recoveryCodeHashes  String[]
   /// Soft delete for GDPR erasure requests; personal fields are scrubbed.
-  deletedAt       DateTime?
+  deletedAt           DateTime?
 
   sessions            AuthSession[]
   psychologistProfile PsychologistProfile?  @relation("ProfileOwner")
@@ -252,6 +262,7 @@ model User {
   messagesSent        Message[]
   notifications       Notification[]
   feedbackGiven       Feedback[]
+  consents            ConsentRecord[]
   notesAbout          SessionNote[]         @relation("NoteClient")
 
   @@index([role, status])
@@ -572,6 +583,8 @@ model Payment {
   refundReason    String?
   /// Platform commission for this payment (snapshot of the plan at booking).
   commissionCents Int           @default(0)
+  /// Unpaid online checkouts release the slot after this time.
+  expiresAt       DateTime?
   paidAt          DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -921,4 +934,30 @@ model SearchLog {
 
   @@index([createdAt])
   @@index([query])
+}
+
+// ─── Section 7: compliance ──────────────────────────────────────────────────
+
+enum ConsentKind {
+  terms
+  privacy
+  health_data
+  psychologist_terms
+  optional_cookies
+}
+
+/// Proof of consent (GDPR Art. 7): what, which document version, when, and
+/// when it was withdrawn. Never deleted while the account exists.
+model ConsentRecord {
+  id          String      @id @default(cuid())
+  userId      String
+  kind        ConsentKind
+  version     String
+  grantedAt   DateTime    @default(now())
+  withdrawnAt DateTime?
+  userAgent   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
 }

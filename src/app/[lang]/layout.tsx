@@ -7,6 +7,7 @@ import { getDictionary } from "@/i18n/get-dictionary";
 import { fill } from "@/lib/format";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { CookieBanner } from "@/components/privacy/cookie-consent";
 import "../globals.css";
 
 // Both families include Greek glyphs. Commissioner is by a Greek type designer.
@@ -90,6 +91,7 @@ export default async function LocaleLayout({
           {children}
         </main>
         <SiteFooter locale={lang} dict={dict} />
+        <CookieBanner t={dict.cookies} policyHref={`/${lang}/p/cookies`} />
       </body>
     </html>
   );

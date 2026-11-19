@@ -101,7 +101,7 @@ async function loadSchedules(ids: string[], until: Date, client: Client = db): P
   const rules = await client.availabilityRule.findMany({ where: { psychologistId: { in: ids } } });
   const timeOff = await client.timeOff.findMany({ where: { psychologistId: { in: ids }, endsAt: { gte: now }, startsAt: { lte: until } } });
   const appts = await client.appointment.findMany({
-    where: { psychologistId: { in: ids }, status: { in: ["pending", "confirmed"] }, endsAt: { gte: now }, startsAt: { lte: until } },
+    where: { psychologistId: { in: ids }, status: { in: ["awaiting_payment", "pending", "confirmed"] }, endsAt: { gte: now }, startsAt: { lte: until } },
     select: { psychologistId: true, startsAt: true, endsAt: true },
   });
   const external = await client.externalBusy.findMany({

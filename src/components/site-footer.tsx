@@ -22,6 +22,8 @@ export function SiteFooter({ locale, dict }: { locale: Locale; dict: Dictionary 
               [`/${locale}/p/about`, dict.footer.about],
               [`/${locale}/p/privacy`, dict.footer.privacy],
               [`/${locale}/p/terms`, dict.footer.terms],
+              [`/${locale}/p/cancellation-policy`, dict.legal.footerCancellation],
+              [`/${locale}/p/terms-psychologists`, dict.legal.footerPsychologistTerms],
               [`/${locale}/p/cookies`, dict.footer.cookies],
             ].map(([href, label]) => (
               <Link key={href} href={href} className="text-muted hover:text-ink hover:underline">{label}</Link>

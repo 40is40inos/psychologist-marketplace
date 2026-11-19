@@ -1,6 +1,5 @@
 /**
- * Starter CMS content. The legal pages are TEMPLATES: they must be reviewed
- * and completed by legal counsel before launch.
+ * Starter CMS content. Legal page templates live in seed-legal.ts.
  */
 type T = { title: string; excerpt?: string; body: string };
 export interface SeedContent {
@@ -10,8 +9,6 @@ export interface SeedContent {
   en: T;
 }
 
-const draftNoteEl = "> Πρότυπο κείμενο. Πρέπει να ελεγχθεί και να συμπληρωθεί από νομικό σύμβουλο πριν από τη λειτουργία.";
-const draftNoteEn = "> Template text. It must be reviewed and completed by legal counsel before launch.";
 
 export const content: SeedContent[] = [
   {
@@ -25,30 +22,6 @@ export const content: SeedContent[] = [
       title: "About us",
       body: "We help people find the right psychologist, with clear information about approach, prices and availability.\n\n## How psychologists are vetted\n\nOur team checks every psychologist's license to practise before their profile goes live.\n\n## Contact\n\nQuestions? Write to [support@example.com](mailto:support@example.com).",
     },
-  },
-  {
-    kind: "page",
-    slug: "privacy",
-    el: {
-      title: "Πολιτική απορρήτου",
-      body: `${draftNoteEl}\n\n## Ποια δεδομένα συλλέγουμε\n\n- Στοιχεία λογαριασμού: όνομα, email, τηλέφωνο (προαιρετικά).\n- Στοιχεία κρατήσεων και πληρωμών.\n- Μηνύματα και απαντήσεις εισαγωγής, αποθηκευμένα κρυπτογραφημένα.\n\n## Υπεύθυνος επεξεργασίας\n\n[Συμπληρώστε επωνυμία, διεύθυνση και στοιχεία DPO.]\n\n## Τα δικαιώματά σας (GDPR)\n\nΠρόσβαση, διόρθωση, διαγραφή, φορητότητα και εναντίωση. Επικοινωνήστε στο [privacy@example.com](mailto:privacy@example.com).`,
-    },
-    en: {
-      title: "Privacy policy",
-      body: `${draftNoteEn}\n\n## What we collect\n\n- Account details: name, email, phone (optional).\n- Booking and payment details.\n- Messages and intake answers, stored encrypted.\n\n## Data controller\n\n[Add company name, address and DPO contact.]\n\n## Your rights (GDPR)\n\nAccess, correction, erasure, portability and objection. Contact [privacy@example.com](mailto:privacy@example.com).`,
-    },
-  },
-  {
-    kind: "page",
-    slug: "terms",
-    el: { title: "Όροι χρήσης", body: `${draftNoteEl}\n\n## Η υπηρεσία\n\nΗ πλατφόρμα συνδέει πελάτες με αδειοδοτημένους ψυχολόγους. Δεν παρέχει υπηρεσίες επειγόντων.\n\n## Κρατήσεις και ακυρώσεις\n\nΙσχύει η πολιτική ακύρωσης κάθε ψυχολόγου, όπως εμφανίζεται στο προφίλ του.` },
-    en: { title: "Terms of use", body: `${draftNoteEn}\n\n## The service\n\nThe platform connects clients with licensed psychologists. It is not an emergency service.\n\n## Bookings and cancellations\n\nEach psychologist's cancellation policy, shown on their profile, applies.` },
-  },
-  {
-    kind: "page",
-    slug: "cookies",
-    el: { title: "Πολιτική cookies", body: `${draftNoteEl}\n\nΧρησιμοποιούμε μόνο απαραίτητα cookies: για τη σύνδεση (session) και τη γλώσσα. Δεν χρησιμοποιούμε cookies διαφήμισης.` },
-    en: { title: "Cookie policy", body: `${draftNoteEn}\n\nWe only use essential cookies: for signing in (session) and remembering your language. We don't use advertising cookies.` },
   },
   {
     kind: "article",

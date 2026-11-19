@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { refundCard } from "@/lib/payments";
 import { assertPermission } from "@/lib/auth/session";
 import { LANGUAGE_RE, SLUG_RE } from "@/domain/taxonomy";
 import { defaultLocale, isLocale } from "@/i18n/config";
@@ -39,6 +40,18 @@ export async function refundPayment(_p: AdminState, fd: FormData): Promise<Admin
   const parsed = refundSchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail(fd.get("reason") ? "invalid" : "reason");
   const cents = Math.round(parsed.data.amount * 100);
+
+  // Card payments are refunded at the provider first; the books follow.
+  const card = await db.payment.findUnique({ where: { id: parsed.data.paymentId }, select: { method: true, provider: true, providerRef: true, status: true, amountCents: true, refundedCents: true } });
+  if (card?.method === "card" && card.provider === "stripe" && card.providerRef && card.status === "paid") {
+    if (card.refundedCents + cents > card.amountCents) return fail("tooMuch");
+    try {
+      await refundCard(card.providerRef, cents, `admin:${parsed.data.paymentId}:${card.refundedCents}:${cents}`);
+    } catch (e) {
+      console.error("[payments] refund failed", e);
+      return fail("provider");
+    }
+  }
 
   const done = await db.$transaction(async (tx) => {
     const pay = await tx.payment.findUnique({ where: { id: parsed.data.paymentId }, include: { appointment: { select: { client: { select: { name: true } } } } } });

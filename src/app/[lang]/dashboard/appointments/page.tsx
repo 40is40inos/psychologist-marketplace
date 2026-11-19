@@ -11,6 +11,7 @@ import { decrypt } from "@/lib/crypto";
 import { fill, formatPrice, formatShortDate, formatTime } from "@/lib/format";
 import { joinWindow } from "@/lib/video";
 import { requirePsychologist } from "@/lib/workspace";
+import { logAccess } from "@/lib/audit";
 import { SessionTypeIcon } from "@/components/session-type-icon";
 import { buttonClass } from "@/components/ui/form";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
@@ -41,7 +42,7 @@ function intakeOf(enc: string | null): { reason?: string; firstTime?: string; no
 }
 
 async function Appointments({ locale, dict, searchParams }: { locale: Locale; dict: Dictionary; searchParams: PageProps<"/[lang]/dashboard/appointments">["searchParams"] }) {
-  const { profileId } = await requirePsychologist(locale, `/${locale}/dashboard/appointments`);
+  const { user, profileId } = await requirePsychologist(locale, `/${locale}/dashboard/appointments`);
   const sp = await searchParams;
   const t = dict.apptPage;
   const now = new Date();
@@ -62,6 +63,8 @@ async function Appointments({ locale, dict, searchParams }: { locale: Locale; di
   const past = all.filter((a) => !requests.includes(a) && !upcoming.includes(a)).reverse();
   const tab: Tab = sp.tab === "past" ? "past" : sp.tab === "requests" || (requests.length > 0 && sp.tab !== "upcoming") ? "requests" : "upcoming";
   const list = { requests, upcoming, past }[tab];
+  const withIntake = list.filter((a) => a.intakeEncrypted).map((a) => a.id);
+  if (withIntake.length) logAccess(user.id, "intake.view", "Appointment", withIntake.join(",").slice(0, 190), { count: withIntake.length });
   const conversations = new Map(
     (await db.conversation.findMany({ where: { psychologistId: profileId }, select: { id: true, clientId: true } })).map((c) => [c.clientId, c.id]),
   );

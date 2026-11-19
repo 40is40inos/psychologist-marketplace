@@ -1,7 +1,9 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { PENDING_COOKIE, signPending } from "@/lib/auth/two-factor";
+import { LEGAL_VERSION } from "@/config/legal";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
@@ -77,17 +79,29 @@ export async function signIn(_prev: AuthFormState, formData: FormData): Promise<
 
   const user = await db.user.findUnique({
     where: { email: address },
-    select: { id: true, passwordHash: true, role: true, status: true, deletedAt: true },
+    select: { id: true, passwordHash: true, role: true, status: true, deletedAt: true, totpEnabledAt: true },
   });
   // Always run one hash comparison so response time doesn't reveal unknown emails.
   const ok = await verifyPassword(password, user?.passwordHash ?? (await getDummyHash()));
   if (!user || !ok || user.deletedAt) return { error: "invalid_credentials", values };
   if (user.status !== "active") return { error: "suspended", values };
 
+  const next = safeNextPath(formData.get("next"), locale);
+
+  // Second step: password was right, now ask for the authenticator code.
+  if (user.totpEnabledAt) {
+    (await cookies()).set(PENDING_COOKIE, signPending(user.id), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 300,
+    });
+    redirect(`/${locale}/sign-in/verify${next ? `?next=${encodeURIComponent(next)}` : ""}`);
+  }
+
   await createSession(user.id);
   await db.user.update({ where: { id: user.id }, data: { lastSignInAt: new Date() } });
-
-  const next = safeNextPath(formData.get("next"), locale);
   redirect(next ?? `/${locale}${homePathFor(user.role)}`);
 }
 
@@ -114,11 +128,13 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
 
   const base = signUpSchema.safeParse(raw);
   const pro = values.role === "psychologist" ? psychologistSchema.safeParse(raw) : null;
-  if (!base.success || (pro && !pro.success)) {
+  const healthOk = values.role !== "client" || formData.get("healthConsent") === "on";
+  if (!base.success || (pro && !pro.success) || !healthOk) {
     const fieldErrors: Record<string, true> = {};
     for (const issue of [...(base.error?.issues ?? []), ...(pro?.error?.issues ?? [])]) {
       fieldErrors[String(issue.path[0])] = true;
     }
+    if (!healthOk) fieldErrors.consent = true;
     return { error: "invalid_input", fieldErrors, values };
   }
 
@@ -153,6 +169,11 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
     },
     select: { id: true, role: true },
   });
+
+  // Proof of consent (GDPR Art. 7): what was accepted, which version, when.
+  const userAgent = (await headers()).get("user-agent")?.slice(0, 255) ?? null;
+  const kinds = role === "client" ? (["terms", "privacy", "health_data"] as const) : (["psychologist_terms", "privacy"] as const);
+  await db.consentRecord.createMany({ data: kinds.map((kind) => ({ userId: user.id, kind, version: LEGAL_VERSION, userAgent })) });
 
   await createSession(user.id);
   // Clients who signed up mid-booking go back to their booking.

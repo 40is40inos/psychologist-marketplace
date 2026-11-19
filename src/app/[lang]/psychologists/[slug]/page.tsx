@@ -184,7 +184,7 @@ async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[s
             )}
             {p.office.lat != null && p.office.lng != null && (
               <div className="mt-4">
-                <LazyMap className="h-64" points={[{ slug: p.slug, name: p.name, lat: p.office.lat, lng: p.office.lng, label: p.office.address, href: path }]} />
+                <LazyMap className="h-64" labels={dict.cookies} points={[{ slug: p.slug, name: p.name, lat: p.office.lat, lng: p.office.lng, label: p.office.address, href: path }]} />
               </div>
             )}
           </Block>

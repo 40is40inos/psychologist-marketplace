@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { can, homePathFor, type Permission, type Role } from "@/domain/roles";
 import type { Locale } from "@/i18n/config";
 import { SESSION_COOKIE, SESSION_TTL_MS } from "./constants";
+import { twoFactorRequired } from "./two-factor";
 
 export interface CurrentUser {
   id: string;
@@ -15,6 +16,7 @@ export interface CurrentUser {
   name: string;
   role: Role;
   locale: Locale;
+  twoFactorEnabled: boolean;
 }
 
 function hashToken(token: string): string {
@@ -69,7 +71,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     select: {
       expiresAt: true,
       user: {
-        select: { id: true, email: true, name: true, role: true, locale: true, status: true, deletedAt: true },
+        select: { id: true, email: true, name: true, role: true, locale: true, status: true, deletedAt: true, totpEnabledAt: true },
       },
     },
   });
@@ -77,7 +79,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   const { user } = session;
   if (user.status !== "active" || user.deletedAt) return null;
-  return { id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale };
+  return { id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale, twoFactorEnabled: !!user.totpEnabledAt };
 });
 
 /** Require a signed-in user; otherwise send them to sign-in and back here after. */
@@ -93,13 +95,15 @@ export async function requireUser(locale: Locale, returnTo: string): Promise<Cur
 export async function requireRole(locale: Locale, role: Role, returnTo: string): Promise<CurrentUser> {
   const user = await requireUser(locale, returnTo);
   if (user.role !== role) redirect(`/${locale}${homePathFor(user.role)}`);
+  // Psychologists and admins can't use their area until 2FA is set up.
+  if (twoFactorRequired(user.role) && !user.twoFactorEnabled) redirect(`/${locale}/security?required=1`);
   return user;
 }
 
 /** For Server Actions: throw instead of redirecting if the permission is missing. */
 export async function assertPermission(permission: Permission): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!user || !can(user.role, permission)) {
+  if (!user || !can(user.role, permission) || (twoFactorRequired(user.role) && !user.twoFactorEnabled)) {
     throw new Error("Forbidden");
   }
   return user;
