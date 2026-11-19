@@ -7,11 +7,11 @@ export function Logo({ locale }: { locale: Locale }) {
   return (
     <Link
       href={`/${locale}`}
-      className="flex items-center gap-2 font-display text-lg font-semibold tracking-tight text-ink"
+      className="flex min-w-0 items-center gap-2 whitespace-nowrap font-display text-base font-semibold tracking-tight text-ink sm:text-lg"
     >
       <span
         aria-hidden="true"
-        className="grid size-8 place-items-center rounded-full bg-primary text-primary-ink"
+        className="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-primary-ink"
       >
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
           <path d="M5 13c2.5 3 11.5 3 14 0" />

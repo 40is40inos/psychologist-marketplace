@@ -1,12 +1,15 @@
-// Data model foundation (section 1: market, languages, currency, session types).
-// Later sections extend this: availability, booking flow, payments, reviews,
-// messaging, admin verification.
+// Data model.
+// Section 1: market, languages, currency, session types.
+// Section 2: user roles (client, psychologist, admin), auth sessions,
+//            license verification, disputes, audit log.
 //
 // Conventions
 // - Money is stored as integer cents with an explicit currency (EUR for now).
 // - All timestamps are stored in UTC; display uses the market's time zone.
 // - Translatable text lives in *Translation tables keyed by locale, so adding
 //   a language needs no schema change.
+// - "Psychologist" is the role name and covers psychotherapists too; the
+//   professional title is stored separately.
 
 generator client {
   provider = "prisma-client"
@@ -33,9 +36,14 @@ enum SessionType {
 }
 
 enum UserRole {
-  patient
-  therapist
+  client
+  psychologist
   admin
+}
+
+enum UserStatus {
+  active
+  suspended
 }
 
 enum ProfessionalTitle {
@@ -55,10 +63,17 @@ enum VerificationStatus {
 enum AppointmentStatus {
   pending
   confirmed
-  cancelled_by_patient
-  cancelled_by_therapist
+  cancelled_by_client
+  cancelled_by_psychologist
   completed
   no_show
+}
+
+enum DisputeStatus {
+  open
+  under_review
+  resolved
+  rejected
 }
 
 /// Markets the platform operates in. Greece first, more EU countries later.
@@ -68,8 +83,8 @@ model Country {
   timeZone String // IANA, e.g. Europe/Athens
   enabled  Boolean  @default(false)
 
-  cities     City[]
-  therapists TherapistProfile[]
+  cities        City[]
+  psychologists PsychologistProfile[]
 }
 
 model City {
@@ -96,25 +111,55 @@ model CityTranslation {
   @@id([cityId, locale])
 }
 
+// ─── Users and auth ─────────────────────────────────────────────────────────
+
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
+  id              String     @id @default(cuid())
+  email           String     @unique
   emailVerifiedAt DateTime?
-  name            String?
+  /// scrypt hash, see src/lib/auth/password.ts.
+  passwordHash    String
+  name            String
   phone           String?
-  role            UserRole  @default(patient)
+  role            UserRole   @default(client)
+  status          UserStatus @default(active)
   /// UI and email language preference.
-  locale          Locale    @default(el)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  locale          Locale     @default(el)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  lastSignInAt    DateTime?
   /// Soft delete for GDPR erasure requests; personal fields are scrubbed.
   deletedAt       DateTime?
 
-  therapistProfile TherapistProfile?
-  appointments     Appointment[]     @relation("PatientAppointments")
+  sessions            AuthSession[]
+  psychologistProfile PsychologistProfile?  @relation("ProfileOwner")
+  clientAppointments  Appointment[]         @relation("ClientAppointments")
+  disputesOpened      Dispute[]             @relation("DisputeOpener")
+  disputesResolved    Dispute[]             @relation("DisputeResolver")
+  verificationsDone   PsychologistProfile[] @relation("ProfileVerifier")
+  auditEntries        AuditLog[]
+
+  @@index([role, status])
 }
 
-model TherapistProfile {
+/// Server-side login session. The cookie holds a random token; only its
+/// SHA-256 hash is stored, so a database leak does not leak live sessions.
+model AuthSession {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─── Psychologists ──────────────────────────────────────────────────────────
+
+model PsychologistProfile {
   id                 String             @id @default(cuid())
   userId             String             @unique
   slug               String             @unique
@@ -125,42 +170,48 @@ model TherapistProfile {
   licensingAuthority String
   verificationStatus VerificationStatus @default(pending)
   verifiedAt         DateTime?
+  verifiedById       String?
+  /// Shown to the psychologist when an application is rejected.
+  rejectionReason    String?
   practisingSince    Int?
   photoUrl           String?
-  /// Languages the therapist can hold sessions in (ISO 639-1 codes).
+  /// Languages the psychologist can hold sessions in (ISO 639-1 codes).
   sessionLanguages   String[]
+  /// Psychologist's own switch; the profile is public only when this is true
+  /// AND verificationStatus is verified.
   published          Boolean            @default(false)
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
-  user         User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  country      Country                       @relation(fields: [countryCode], references: [code])
-  translations TherapistProfileTranslation[]
+  user         User                             @relation("ProfileOwner", fields: [userId], references: [id], onDelete: Cascade)
+  verifiedBy   User?                            @relation("ProfileVerifier", fields: [verifiedById], references: [id])
+  country      Country                          @relation(fields: [countryCode], references: [code])
+  translations PsychologistProfileTranslation[]
   offerings    SessionOffering[]
   offices      Office[]
-  specialties  TherapistSpecialty[]
+  specialties  PsychologistSpecialty[]
   appointments Appointment[]
 
   @@index([countryCode, verificationStatus, published])
 }
 
-/// Per-language profile text. A therapist may write in one or both languages.
-model TherapistProfileTranslation {
-  therapistId String
-  locale      Locale
-  headline    String
-  bio         String  @db.Text
-  approach    String? @db.Text
+/// Per-language profile text. A psychologist may write in one or both languages.
+model PsychologistProfileTranslation {
+  psychologistId String
+  locale         Locale
+  headline       String
+  bio            String  @db.Text
+  approach       String? @db.Text
 
-  therapist TherapistProfile @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
 
-  @@id([therapistId, locale])
+  @@id([psychologistId, locale])
 }
 
 /// A bookable session format with its own duration and price.
 model SessionOffering {
   id              String      @id @default(cuid())
-  therapistId     String
+  psychologistId  String
   type            SessionType
   durationMinutes Int         @default(50)
   priceCents      Int
@@ -169,15 +220,16 @@ model SessionOffering {
   /// Required for in-person sessions.
   officeId        String?
 
-  therapist TherapistProfile @relation(fields: [therapistId], references: [id], onDelete: Cascade)
-  office    Office?          @relation(fields: [officeId], references: [id])
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  office       Office?             @relation(fields: [officeId], references: [id])
 
+  @@unique([psychologistId, type])
   @@index([type, active])
 }
 
 model Office {
   id                   String  @id @default(cuid())
-  therapistId          String
+  psychologistId       String
   cityId               String
   addressLine          String
   postalCode           String
@@ -186,18 +238,18 @@ model Office {
   /// Accessibility details matter for in-person care.
   wheelchairAccessible Boolean @default(false)
 
-  therapist TherapistProfile  @relation(fields: [therapistId], references: [id], onDelete: Cascade)
-  city      City              @relation(fields: [cityId], references: [id])
-  offerings SessionOffering[]
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  city         City                @relation(fields: [cityId], references: [id])
+  offerings    SessionOffering[]
 }
 
 /// Concerns and approaches (anxiety, CBT, ...). Shared taxonomy, translated.
 model Specialty {
-  id           String                 @id @default(cuid())
-  slug         String                 @unique
-  kind         String // "concern" | "approach" | "population"
-  translations SpecialtyTranslation[]
-  therapists   TherapistSpecialty[]
+  id            String                  @id @default(cuid())
+  slug          String                  @unique
+  kind          String // "concern" | "approach" | "population"
+  translations  SpecialtyTranslation[]
+  psychologists PsychologistSpecialty[]
 }
 
 model SpecialtyTranslation {
@@ -210,37 +262,80 @@ model SpecialtyTranslation {
   @@id([specialtyId, locale])
 }
 
-model TherapistSpecialty {
-  therapistId String
-  specialtyId String
+model PsychologistSpecialty {
+  psychologistId String
+  specialtyId    String
 
-  therapist TherapistProfile @relation(fields: [therapistId], references: [id], onDelete: Cascade)
-  specialty Specialty        @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  specialty    Specialty           @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
 
-  @@id([therapistId, specialtyId])
+  @@id([psychologistId, specialtyId])
 }
+
+// ─── Appointments and disputes ──────────────────────────────────────────────
 
 /// Minimal appointment record. Booking rules come in a later section.
 model Appointment {
-  id          String            @id @default(cuid())
-  patientId   String
-  therapistId String
-  sessionType SessionType
-  status      AppointmentStatus @default(pending)
-  startsAt    DateTime // UTC
-  endsAt      DateTime // UTC
+  id             String            @id @default(cuid())
+  clientId       String
+  psychologistId String
+  sessionType    SessionType
+  status         AppointmentStatus @default(pending)
+  startsAt       DateTime // UTC
+  endsAt         DateTime // UTC
   /// Snapshot of the price at booking time, so later price changes don't
   /// rewrite history.
-  priceCents  Int
-  currency    Currency          @default(EUR)
+  priceCents     Int
+  currency       Currency          @default(EUR)
   /// Language the session will be held in.
-  locale      Locale
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  locale         Locale
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
-  patient   User             @relation("PatientAppointments", fields: [patientId], references: [id])
-  therapist TherapistProfile @relation(fields: [therapistId], references: [id])
+  client       User                @relation("ClientAppointments", fields: [clientId], references: [id])
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id])
+  disputes     Dispute[]
 
-  @@index([therapistId, startsAt])
-  @@index([patientId, startsAt])
+  @@index([psychologistId, startsAt])
+  @@index([clientId, startsAt])
+}
+
+/// A complaint about an appointment (no-show, billing, conduct). Opened by
+/// the client or the psychologist, handled by an admin.
+model Dispute {
+  id            String        @id @default(cuid())
+  appointmentId String
+  openedById    String
+  reason        String        @db.Text
+  status        DisputeStatus @default(open)
+  resolution    String?       @db.Text
+  resolvedById  String?
+  resolvedAt    DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+  openedBy    User        @relation("DisputeOpener", fields: [openedById], references: [id])
+  resolvedBy  User?       @relation("DisputeResolver", fields: [resolvedById], references: [id])
+
+  @@index([status, createdAt])
+}
+
+// ─── Admin ──────────────────────────────────────────────────────────────────
+
+/// Append-only record of privileged actions (verifications, suspensions,
+/// dispute decisions). Never updated or deleted by the app.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  action     String // e.g. "license.verify", "user.suspend"
+  targetType String // e.g. "PsychologistProfile", "User", "Dispute"
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
 }

@@ -3,7 +3,7 @@ import { ArrowRight, BadgeCheck, Lock, ReceiptEuro } from "lucide-react";
 import { notFound } from "next/navigation";
 import { brand } from "@/config/brand";
 import { SESSION_TYPES } from "@/domain/session-types";
-import { isLocale } from "@/i18n/config";
+import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { demoTherapists, lowestPrice, type ConcernKey } from "@/data/demo-therapists";
 import { fill, formatPrice } from "@/lib/format";
@@ -139,7 +139,7 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
         </ul>
       </Section>
 
-      <ForPsychologists dict={dict} />
+      <ForPsychologists lang={lang} dict={dict} />
     </>
   );
 }
@@ -168,20 +168,19 @@ function Section({
   );
 }
 
-function ForPsychologists({ dict }: { dict: Dictionary }) {
+function ForPsychologists({ lang, dict }: { lang: Locale; dict: Dictionary }) {
   return (
     <section id="for-psychologists" className="scroll-mt-20">
       <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-20">
         <div className="rounded-3xl bg-primary px-6 py-10 text-primary-ink sm:px-10 sm:py-12">
           <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{dict.home.ctaTitle}</h2>
           <p className="mt-3 max-w-xl opacity-90">{dict.home.ctaBody}</p>
-          {/* Until therapist onboarding exists, this goes to the support inbox. */}
-          <a
-            href={`mailto:${brand.supportEmail}`}
+          <Link
+            href={`/${lang}/sign-up?role=psychologist`}
             className="mt-6 inline-flex h-12 items-center rounded-xl bg-primary-ink px-5 font-semibold text-primary transition-opacity hover:opacity-90"
           >
             {fill(dict.home.ctaButton, { brand: brand.name })}
-          </a>
+          </Link>
         </div>
       </div>
     </section>

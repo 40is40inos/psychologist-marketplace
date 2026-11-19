@@ -59,3 +59,31 @@ export function formatList(items: string[], locale: Locale): string {
  * prerendered pages do not depend on the request time.
  */
 export const CURRENT_YEAR = new Date().getFullYear();
+
+/** Offset of the market time zone from UTC at a given instant, in ms. */
+function marketOffsetMs(date: Date): number {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: currentMarket.timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+    })
+      .formatToParts(date)
+      .filter((p) => p.type !== "literal")
+      .map((p) => [p.type, Number(p.value)]),
+  );
+  const wall = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+  return wall - Math.floor(date.getTime() / 1000) * 1000;
+}
+
+/** Midnight on the 1st of the current month in the market's time zone, as a UTC instant. */
+export function startOfMonthInMarket(now: Date): Date {
+  const local = new Date(now.getTime() + marketOffsetMs(now));
+  const guess = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), 1);
+  return new Date(guess - marketOffsetMs(new Date(guess)));
+}

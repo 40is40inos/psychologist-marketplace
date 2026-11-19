@@ -1,0 +1,103 @@
+import "server-only";
+import { cache } from "react";
+import { createHash, randomBytes } from "node:crypto";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { can, homePathFor, type Permission, type Role } from "@/domain/roles";
+import type { Locale } from "@/i18n/config";
+import { SESSION_COOKIE, SESSION_TTL_MS } from "./constants";
+
+export interface CurrentUser {
+  id: string;
+  email: string;
+  name: string;
+  role: Role;
+  locale: Locale;
+}
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+/** Create a session and set the cookie. Call only from Server Actions or Route Handlers. */
+export async function createSession(userId: string): Promise<void> {
+  const token = randomBytes(32).toString("base64url");
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  const userAgent = (await headers()).get("user-agent")?.slice(0, 255) ?? null;
+
+  await db.authSession.create({
+    data: { tokenHash: hashToken(token), userId, expiresAt, userAgent },
+  });
+  (await cookies()).set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    expires: expiresAt,
+  });
+}
+
+/** Delete the current session row and cookie. */
+export async function destroySession(): Promise<void> {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
+  if (token) {
+    await db.authSession.deleteMany({ where: { tokenHash: hashToken(token) } });
+  }
+  store.delete(SESSION_COOKIE);
+}
+
+/** Sign a user out everywhere, e.g. when an admin suspends them. */
+export async function destroyAllSessions(userId: string): Promise<void> {
+  await db.authSession.deleteMany({ where: { userId } });
+}
+
+/**
+ * The signed-in user, or null. Memoised per request, so layouts and pages
+ * can both call it without extra queries.
+ */
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  const session = await db.authSession.findUnique({
+    where: { tokenHash: hashToken(token) },
+    select: {
+      expiresAt: true,
+      user: {
+        select: { id: true, email: true, name: true, role: true, locale: true, status: true, deletedAt: true },
+      },
+    },
+  });
+  if (!session || session.expiresAt < new Date()) return null;
+
+  const { user } = session;
+  if (user.status !== "active" || user.deletedAt) return null;
+  return { id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale };
+});
+
+/** Require a signed-in user; otherwise send them to sign-in and back here after. */
+export async function requireUser(locale: Locale, returnTo: string): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect(`/${locale}/sign-in?next=${encodeURIComponent(returnTo)}`);
+  }
+  return user;
+}
+
+/** Require a specific role. Other signed-in roles go to their own home. */
+export async function requireRole(locale: Locale, role: Role, returnTo: string): Promise<CurrentUser> {
+  const user = await requireUser(locale, returnTo);
+  if (user.role !== role) redirect(`/${locale}${homePathFor(user.role)}`);
+  return user;
+}
+
+/** For Server Actions: throw instead of redirecting if the permission is missing. */
+export async function assertPermission(permission: Permission): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!user || !can(user.role, permission)) {
+    throw new Error("Forbidden");
+  }
+  return user;
+}

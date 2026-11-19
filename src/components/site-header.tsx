@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import type { Locale } from "@/i18n/config";
 import type { Dictionary } from "@/i18n/get-dictionary";
 import { LanguageSwitcher } from "./language-switcher";
 import { Logo } from "./logo";
+import { UserMenu } from "./user-menu";
 
 export function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary }) {
   const links = [
@@ -14,7 +16,7 @@ export function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary 
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-bg/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-2 px-4 sm:gap-4 sm:px-6">
         <Logo locale={locale} />
 
         <nav aria-label={dict.a11y.mainNav} className="hidden items-center gap-6 md:flex">
@@ -25,8 +27,11 @@ export function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary 
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <LanguageSwitcher current={locale} label={dict.a11y.changeLanguage} />
+          <Suspense fallback={<div className="h-10 w-16" />}>
+            <UserMenu locale={locale} dict={dict} />
+          </Suspense>
 
           {/* Mobile menu: a native disclosure, so it works without JavaScript. */}
           <details className="group relative md:hidden">

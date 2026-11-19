@@ -13,7 +13,17 @@ cp .env.example .env      # set DATABASE_URL and NEXT_PUBLIC_BRAND_NAME
 npm install
 npm run dev               # http://localhost:3000 -> redirects to /el or /en
 ```
-Database (when needed): `npm run db:migrate`.
+### Database
+No local Postgres? Prisma's built-in dev server works:
+```bash
+npx prisma dev --name psy --detach   # prints a postgres:// URL -> put it in DATABASE_URL
+npm run db:migrate                   # apply migrations
+npx prisma db seed                   # demo data + test accounts
+```
+Seed accounts all use `SEED_PASSWORD` from `.env`:
+`admin@example.test` (admin), `client@example.test` (client),
+`psychologist1@example.test` (verified psychologist),
+`applicant1@example.test` (psychologist awaiting verification).
 
 ## Section 1 — what's in place
 | Concern | Where |
@@ -27,6 +37,28 @@ Database (when needed): `npm run db:migrate`.
 | Session types: `in_person`, `video`, `phone` | `src/domain/session-types.ts`, Prisma enum |
 | Data model foundation | `prisma/schema.prisma` |
 | Mobile-first home + search results (demo data) | `src/app/[lang]/` |
+
+## Section 2 — user roles
+| Role | Area | Can do |
+|---|---|---|
+| Client | `/[lang]/account` | See upcoming and past sessions (booking and payment arrive in later sections) |
+| Psychologist | `/[lang]/dashboard` | See verification status, set prices per session format, edit profile in el/en, see upcoming sessions and clients |
+| Admin | `/[lang]/admin` | Analytics overview, approve/reject licenses, suspend/reactivate users, review and resolve disputes; every action goes to the audit log |
+
+- Permissions live in `src/domain/roles.ts`; check them with `can(role, permission)`.
+- Auth is built in (no third-party provider): scrypt password hashes, random
+  session tokens stored hashed in `AuthSession`, httpOnly cookie, sign-in
+  rate limiting (in-memory; use Redis with more than one server).
+- `src/proxy.ts` sends signed-out visitors to sign-in; every page and Server
+  Action re-checks the session and role against the database.
+- Admins can't sign up; they're created by the seed (or directly in the DB).
+- Psychologists sign up with license number and issuing authority. Their
+  profile stays out of search until an admin verifies it.
+
+### Not yet
+Email verification and password reset (need an email provider), license
+document upload, opening disputes from the client side (needs booking),
+weekly availability (booking section).
 
 ### Adding a language
 1. Add the code to `locales` and its entries in `src/i18n/config.ts`.

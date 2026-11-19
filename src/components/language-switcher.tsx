@@ -17,7 +17,7 @@ export function LanguageSwitcher({
 
   return (
     <nav aria-label={label} className="flex items-center gap-1 text-sm">
-      <Globe className="size-4 text-muted" aria-hidden="true" />
+      <Globe className="hidden size-4 text-muted sm:block" aria-hidden="true" />
       {locales.map((locale) => {
         const segments = pathname.split("/");
         segments[1] = locale;
@@ -29,7 +29,7 @@ export function LanguageSwitcher({
             hrefLang={locale}
             lang={locale}
             aria-current={active ? "true" : undefined}
-            className={`rounded-md px-2 py-1.5 font-medium uppercase transition-colors ${
+            className={`rounded-md px-1.5 py-1.5 sm:px-2 font-medium uppercase transition-colors ${
               active
                 ? "bg-primary-soft text-primary"
                 : "text-muted hover:text-ink"
