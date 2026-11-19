@@ -2,6 +2,7 @@ import "server-only";
 import { displayName } from "@/lib/slug";
 import type { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { searchProfileText } from "@/lib/fts";
 import { earliestSlots } from "@/lib/availability";
 import { localDateKey, zonedToUtc } from "@/lib/time";
 import { isSessionType, type SessionType } from "@/domain/session-types";
@@ -237,11 +238,13 @@ export async function searchPsychologists(
     and.push({ offerings: { some: { active: true, type: "in_person" } } });
   }
   if (f.q) {
+    // Full-text search on profile text (Postgres, GIN-indexed), plus concern
+    // labels and the psychologist's name.
+    const textIds = await searchProfileText(f.q);
     and.push({
       OR: [
         ...(textConcerns.length ? [{ specialties: { some: { specialty: { slug: { in: textConcerns } } } } }] : []),
-        { translations: { some: { headline: { contains: f.q, mode: "insensitive" } } } },
-        { translations: { some: { bio: { contains: f.q, mode: "insensitive" } } } },
+        ...(textIds.length ? [{ id: { in: textIds } }] : []),
         { user: { name: { contains: f.q, mode: "insensitive" } } },
       ],
     });

@@ -227,8 +227,10 @@ model User {
   id                  String     @id @default(cuid())
   email               String     @unique
   emailVerifiedAt     DateTime?
-  /// scrypt hash, see src/lib/auth/password.ts.
+  /// scrypt hash, see src/lib/auth/password.ts. "!" = no password (Google or magic-link only).
   passwordHash        String
+  /// Google account id ("sub"), set when the person signs in with Google.
+  googleSub           String?    @unique
   name                String
   phone               String?
   role                UserRole   @default(client)
@@ -263,6 +265,7 @@ model User {
   notifications       Notification[]
   feedbackGiven       Feedback[]
   consents            ConsentRecord[]
+  loginTokens         LoginToken[]
   notesAbout          SessionNote[]         @relation("NoteClient")
 
   @@index([role, status])
@@ -294,6 +297,10 @@ model PsychologistProfile {
   /// License to practise, checked by an admin before the profile is public.
   licenseNumber              String
   licensingAuthority         String
+  /// Stripe Connect Express account for card payouts (split payments).
+  stripeAccountId            String?            @unique
+  /// Onboarding finished and transfers enabled: card payments can be offered.
+  stripeReady                Boolean            @default(false)
   verificationStatus         VerificationStatus @default(pending)
   verifiedAt                 DateTime?
   verifiedById               String?
@@ -960,4 +967,19 @@ model ConsentRecord {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, kind])
+}
+
+/// One-time sign-in links (magic links). Only a SHA-256 hash of the token is
+/// stored; links expire after 15 minutes and work once.
+model LoginToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

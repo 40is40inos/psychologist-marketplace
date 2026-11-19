@@ -1330,6 +1330,43 @@ const en = {
     concerns: "Get help with",
     cities: "Psychologists by city",
   },
+  magicLink: {
+    toggle: "Email me a sign-in link instead",
+    intro: "No password needed: we'll email you a link that signs you in. It works once and expires in 15 minutes.",
+    email: "Email",
+    send: "Email me a link",
+    sent: "If there's an account for that address, a sign-in link is on its way. Check your inbox (and spam folder).",
+    confirmTitle: "Sign in",
+    confirmBody: "Press the button to finish signing in on this device.",
+    confirm: "Sign me in",
+    back: "Back to sign in",
+    emailSubject: "Your sign-in link for {brand}",
+    emailBody: "Use this link to sign in. It works once and expires in {minutes} minutes:\n\n{url}\n\nIf you didn't ask for it, you can ignore this email.",
+    errors: { invalid: "Enter a valid email address.", rate_limited: "Too many requests. Please wait a few minutes.", expired: "This link has expired or was already used. Ask for a new one." },
+  },
+  googleAuth: {
+    continue: "Continue with Google",
+    or: "or",
+    signupHint: "Tick the boxes above first. We only receive your name and email from Google.",
+    errors: {
+      failed: "Google sign-in didn't work. Please try again or use your email.",
+      cancelled: "Google sign-in was cancelled.",
+      suspended: "This account is suspended. Please contact support.",
+      noaccount: "There's no account for that Google address yet. Tick the boxes below to create one with Google.",
+      consent: "To continue with Google, first agree to the terms and to the processing of health information.",
+    },
+  },
+  payouts: {
+    title: "Card payments and payouts",
+    disabled: "Online card payments aren't switched on for the platform yet. Clients pay you at the session.",
+    intro: "Let clients pay by card when they book. Payments go to your own Stripe account, minus your plan's fee, and are paid out to your bank automatically. Setup takes about 5 minutes (ID and IBAN).",
+    start: "Set up payouts with Stripe",
+    pending: "Your Stripe setup isn't finished yet. Card payments will be offered to clients once it is.",
+    resume: "Finish setup",
+    ready: "Card payments are on",
+    readyBody: "Clients can pay by card when they book. Stripe pays out to your bank account on a rolling schedule.",
+    dashboard: "Open payout dashboard",
+  },
 };
 
 type Widen<T> = T extends string

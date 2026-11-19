@@ -20,6 +20,8 @@ import { SessionTypeIcon } from "@/components/session-type-icon";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import { VideoEmbed } from "@/components/profile/video-embed";
 import { LazyMap } from "@/components/map/lazy-map";
+import { JsonLd } from "@/components/faq-list";
+import { profileJsonLd } from "@/lib/structured-data";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/psychologists/[slug]">): Promise<Metadata> {
   const { lang, slug } = await params;
@@ -66,6 +68,13 @@ async function Profile({ params }: { params: PageProps<"/[lang]/psychologists/[s
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-10 lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <JsonLd
+        data={profileJsonLd(p, lang, {
+          jobTitle: dict.titles[p.title as keyof Dictionary["titles"]],
+          languages: languageNames,
+          offerLabels: Object.fromEntries(p.offerings.map((o) => [o.type, dict.sessionTypes[o.type].label])),
+        })}
+      />
       <div className="min-w-0 space-y-10">
         {/* Header */}
         <header className="flex flex-col gap-5 sm:flex-row sm:items-start">

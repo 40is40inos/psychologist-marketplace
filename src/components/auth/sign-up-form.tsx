@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import { BadgeCheck, HeartHandshake, Stethoscope } from "lucide-react";
 import { signUp, type AuthFormState } from "@/actions/auth";
+import { startGoogle } from "@/actions/google";
+import { GoogleMark } from "@/components/auth/google-button";
 import type { SignupRole } from "@/domain/roles";
 import { PROFESSIONAL_TITLES } from "@/domain/professional-titles";
 import type { Locale } from "@/i18n/config";
@@ -20,6 +22,8 @@ export function SignUpForm({
   t,
   titles,
   legal,
+  google,
+  notice,
 }: {
   locale: Locale;
   initialRole: SignupRole;
@@ -27,6 +31,10 @@ export function SignUpForm({
   t: Dictionary["auth"];
   titles: Dictionary["titles"];
   legal: Dictionary["legal"];
+  /** Shown when Google sign-in is configured. */
+  google?: { label: string; or: string; hint: string };
+  /** Message carried back from the Google flow (e.g. consent missing). */
+  notice?: string;
 }) {
   const [state, action] = useActionState<AuthFormState, FormData>(signUp, {});
   const [role, setRole] = useState<SignupRole>(
@@ -46,6 +54,7 @@ export function SignUpForm({
       {next && <input type="hidden" name="next" value={next} />}
 
       {state.error && state.error !== "email_taken" && <FormAlert>{t.errors[state.error]}</FormAlert>}
+      {notice && !state.error && <FormAlert>{notice}</FormAlert>}
 
       <fieldset>
         <legend className="mb-2 text-sm font-medium text-ink">{t.iAm}</legend>
@@ -138,6 +147,18 @@ export function SignUpForm({
       )}
 
       <SubmitButton className="w-full">{t.submitSignUp}</SubmitButton>
+
+      {google && role === "client" && (
+        <div className="space-y-2">
+          <p className="flex items-center gap-3 text-sm text-muted before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">{google.or}</p>
+          {/* Same form, so the consent checkboxes above travel with it. */}
+          <button type="submit" formAction={startGoogle} formNoValidate name="intent" value="signup" className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface px-4 font-semibold text-ink transition-colors hover:border-primary">
+            <GoogleMark />
+            {google.label}
+          </button>
+          <p className="text-center text-xs text-muted">{google.hint}</p>
+        </div>
+      )}
     </form>
   );
 }

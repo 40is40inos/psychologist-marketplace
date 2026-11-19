@@ -1,8 +1,8 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
-import { cookies, headers } from "next/headers";
-import { PENDING_COOKIE, signPending } from "@/lib/auth/two-factor";
+import { headers } from "next/headers";
+import { completeSignIn } from "@/lib/auth/complete-sign-in";
 import { LEGAL_VERSION } from "@/config/legal";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -86,23 +86,8 @@ export async function signIn(_prev: AuthFormState, formData: FormData): Promise<
   if (!user || !ok || user.deletedAt) return { error: "invalid_credentials", values };
   if (user.status !== "active") return { error: "suspended", values };
 
-  const next = safeNextPath(formData.get("next"), locale);
-
-  // Second step: password was right, now ask for the authenticator code.
-  if (user.totpEnabledAt) {
-    (await cookies()).set(PENDING_COOKIE, signPending(user.id), {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: 300,
-    });
-    redirect(`/${locale}/sign-in/verify${next ? `?next=${encodeURIComponent(next)}` : ""}`);
-  }
-
-  await createSession(user.id);
-  await db.user.update({ where: { id: user.id }, data: { lastSignInAt: new Date() } });
-  redirect(next ?? `/${locale}${homePathFor(user.role)}`);
+  // Accounts with 2FA continue to the authenticator step.
+  return completeSignIn(user, locale, safeNextPath(formData.get("next"), locale));
 }
 
 // ─── Sign up ────────────────────────────────────────────────────────────────

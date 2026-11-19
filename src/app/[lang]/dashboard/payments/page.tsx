@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import { retryInvoice, saveMydataCredentials } from "@/actions/payments";
+import { openPayoutDashboard, startPayoutSetup } from "@/actions/payouts";
+import { cardPaymentsEnabled, fetchAccountReady } from "@/lib/payments";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { db } from "@/lib/db";
@@ -43,8 +45,14 @@ async function Payments({ locale, dict }: { locale: Locale; dict: Dictionary }) 
     db.invoice.findMany({ where: { psychologistId: profileId }, orderBy: [{ issueDate: "desc" }, { number: "desc" }], take: 100 }),
     db.payout.findMany({ where: { psychologistId: profileId }, orderBy: { periodStart: "desc" }, take: 24 }),
     planFor(profileId, locale),
-    db.psychologistProfile.findUniqueOrThrow({ where: { id: profileId }, select: { mydataUserEncrypted: true, taxIdEncrypted: true } }),
+    db.psychologistProfile.findUniqueOrThrow({ where: { id: profileId }, select: { mydataUserEncrypted: true, taxIdEncrypted: true, stripeAccountId: true, stripeReady: true } }),
   ]);
+  // Returning from Stripe onboarding: refresh the status now rather than waiting for the webhook.
+  let payoutsReady = profile.stripeReady;
+  if (cardPaymentsEnabled() && profile.stripeAccountId && !payoutsReady) {
+    payoutsReady = await fetchAccountReady(profile.stripeAccountId).catch(() => false);
+    if (payoutsReady) await db.psychologistProfile.update({ where: { id: profileId }, data: { stripeReady: true } });
+  }
   const gross = paid._sum.amountCents ?? 0;
   const commission = paid._sum.commissionCents ?? 0;
   const connected = !!profile.mydataUserEncrypted;
@@ -64,6 +72,30 @@ async function Payments({ locale, dict }: { locale: Locale; dict: Dictionary }) 
           <Stat label={t.net} value={formatPrice(gross - commission, locale)} strong />
           <Stat label={t.unpaid} value={formatPrice(unpaid._sum.amountCents ?? 0, locale)} />
         </dl>
+      </section>
+
+      <section aria-labelledby="payouts" className="space-y-3 rounded-3xl border border-border bg-surface p-5 sm:p-6">
+        <h2 id="payouts" className="text-lg font-semibold text-ink">{dict.payouts.title}</h2>
+        {!cardPaymentsEnabled() ? (
+          <p className="text-muted">{dict.payouts.disabled}</p>
+        ) : payoutsReady ? (
+          <>
+            <p className="flex items-center gap-2 font-medium text-primary"><CheckCircle2 className="size-5" aria-hidden="true" />{dict.payouts.ready}</p>
+            <p className="text-sm text-muted">{dict.payouts.readyBody}</p>
+            <form action={openPayoutDashboard}>
+              <input type="hidden" name="locale" value={locale} />
+              <SubmitButton variant="secondary">{dict.payouts.dashboard}</SubmitButton>
+            </form>
+          </>
+        ) : (
+          <>
+            <p className="text-muted">{profile.stripeAccountId ? dict.payouts.pending : dict.payouts.intro}</p>
+            <form action={startPayoutSetup}>
+              <input type="hidden" name="locale" value={locale} />
+              <SubmitButton>{profile.stripeAccountId ? dict.payouts.resume : dict.payouts.start}</SubmitButton>
+            </form>
+          </>
+        )}
       </section>
 
       <section aria-labelledby="invoices" className="space-y-3">

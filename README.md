@@ -205,6 +205,23 @@ editorial copy comes from CMS pages named `concern-<slug>` / `city-<slug>`
 (see the seeded `concern-anxiety`). `/sitemap.xml` lists all public pages with
 hreflang alternates; `/robots.txt` keeps private areas out of search.
 
+## Section 10 — tech stack
+| Area | Brief | Built with |
+|---|---|---|
+| Frontend | Next.js App Router + TS + Tailwind + shadcn/ui | Next.js 16 (App Router, Cache Components, server actions), React 19, TypeScript, Tailwind 4. **Not shadcn/ui:** the UI uses a small set of our own accessible primitives (`src/components/ui`) on the same design tokens, the same copy-in approach shadcn uses, without Radix. Add shadcn for complex widgets (combobox, dialog) when needed; it reads the same CSS variables |
+| Backend | API routes / Node; Postgres + Prisma | Next.js route handlers and server actions; PostgreSQL with Prisma 7 (`@prisma/adapter-pg`) |
+| Auth | Email/password, Google, magic links, 2FA | scrypt passwords; **Sign in with Google** (OIDC + PKCE, ID token verified with Google's JWKS via `jose`, verified emails only, new accounts only after explicit consent); **magic links** (hashed one-time tokens, 15 min, confirm button so email scanners can't spend them); TOTP 2FA. Every method ends in `completeSignIn`, so 2FA always applies |
+| Payments | Stripe Connect / Viva Wallet | **Stripe Connect Express**: psychologists onboard from *Workspace → Payments*; card bookings are destination charges with the plan commission as application fee; refunds reverse the transfer and fee; the platform stays merchant of record (neutral statement name). Card payment is offered only once a psychologist's account is ready |
+| Video | Daily.co / Twilio / Whereby | Daily.co (`DAILY_API_KEY`), with built-in peer-to-peer WebRTC as fallback |
+| Email / SMS | Resend/Postmark + Twilio/Infobip | Resend + Twilio, console fallback in development |
+| Search | Postgres FTS, or Meilisearch/Algolia | **Postgres full-text search** on profile text (GIN index, `simple` config, Greek accent folding, prefix matching) in `src/lib/fts.ts`, plus taxonomy matching across languages. Swappable behind `searchProfileText` |
+| Hosting | EU region | `vercel.json` pins functions to `fra1` (Frankfurt) and schedules the crons. Use an EU database (e.g. Neon/Supabase/RDS in `eu-central-1`) and EU file storage |
+| SEO | SSR, schema.org, sitemap, hreflang | Server rendering with partial prerendering; JSON-LD `Person` + `MedicalBusiness` (licence as credential, address, prices) on profiles, `WebSite` + `SearchAction` and `Organization` on home, `FAQPage` / `BreadcrumbList` on content pages; `/sitemap.xml` and `alternates.languages` hreflang on every public page |
+
+### Enabling Google sign-in and payouts
+- Google: set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (redirect URI `/api/auth/google/callback`). The buttons appear automatically.
+- Stripe Connect: enable Connect (Express) in the Stripe dashboard, add a Connect webhook for `account.updated` to `/api/webhooks/stripe` and set `STRIPE_CONNECT_WEBHOOK_SECRET`.
+
 ## Conventions
 - Money is integer cents + currency; timestamps are UTC; display uses Europe/Athens.
 - Greek names are transliterated (ELOT 743) on non-Greek pages: `src/lib/slug.ts`.

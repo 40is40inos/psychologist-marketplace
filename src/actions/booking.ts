@@ -12,6 +12,7 @@ import { hasConsent } from "@/lib/consent";
 import { releaseHold } from "@/lib/card-booking";
 import { db } from "@/lib/db";
 import { CHECKOUT_HOLD_MINUTES, cardPaymentsEnabled, checkoutUrl, createCheckout } from "@/lib/payments";
+import { commissionFor, planFor } from "@/lib/plans";
 
 export interface BookingState {
   error?: BookingError | "invalid" | "consent" | "payment";
@@ -45,7 +46,12 @@ export async function bookAction(_prev: BookingState, fd: FormData): Promise<Boo
   if (!parsed.success) return { error: "invalid" };
   const d = parsed.data;
 
-  const payOnline = d.paymentMethod === "card" && d.kind === "session" && cardPaymentsEnabled();
+  // Card payments go straight to the psychologist's Stripe account (Connect),
+  // so they are offered only once that account can receive transfers.
+  const payee = d.paymentMethod === "card" && d.kind === "session" && cardPaymentsEnabled()
+    ? await db.psychologistProfile.findFirst({ where: { slug: d.slug, stripeReady: true, stripeAccountId: { not: null } }, select: { id: true, stripeAccountId: true } })
+    : null;
+  const payOnline = Boolean(payee);
   let id: string;
   let checkout: string | null = null;
   try {
@@ -60,8 +66,9 @@ export async function bookAction(_prev: BookingState, fd: FormData): Promise<Boo
       payOnline,
     });
     id = appt.id;
-    if (appt.online) {
+    if (appt.online && payee?.stripeAccountId) {
       try {
+        const plan = await planFor(payee.id);
         const s = await createCheckout({
           appointmentId: appt.id,
           amountCents: appt.priceCents,
@@ -70,8 +77,9 @@ export async function bookAction(_prev: BookingState, fd: FormData): Promise<Boo
           locale,
           manualCapture: appt.pending,
           expiresAt: new Date(Date.now() + CHECKOUT_HOLD_MINUTES * 60_000),
+          connect: { accountId: payee.stripeAccountId, feeCents: commissionFor(appt.priceCents, plan?.commissionBps ?? 0) },
         });
-        await db.payment.update({ where: { appointmentId: appt.id }, data: { providerRef: s.id } });
+        await db.payment.update({ where: { appointmentId: appt.id }, data: { providerRef: s.id, provider: "stripe_connect" } });
         checkout = s.url;
       } catch (e) {
         console.error("[payments] checkout failed", e);

@@ -25,7 +25,7 @@ const csp = [
   "media-src 'self' blob: mediastream:",
   "frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://*.daily.co",
   "frame-ancestors 'none'",
-  "form-action 'self' https://checkout.stripe.com",
+  "form-action 'self' https://checkout.stripe.com https://connect.stripe.com https://accounts.google.com",
   "base-uri 'self'",
   "object-src 'none'",
   ...(isDev ? [] : ["upgrade-insecure-requests"]),

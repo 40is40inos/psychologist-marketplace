@@ -43,10 +43,10 @@ export async function refundPayment(_p: AdminState, fd: FormData): Promise<Admin
 
   // Card payments are refunded at the provider first; the books follow.
   const card = await db.payment.findUnique({ where: { id: parsed.data.paymentId }, select: { method: true, provider: true, providerRef: true, status: true, amountCents: true, refundedCents: true } });
-  if (card?.method === "card" && card.provider === "stripe" && card.providerRef && card.status === "paid") {
+  if (card?.method === "card" && card.provider?.startsWith("stripe") && card.providerRef && card.status === "paid") {
     if (card.refundedCents + cents > card.amountCents) return fail("tooMuch");
     try {
-      await refundCard(card.providerRef, cents, `admin:${parsed.data.paymentId}:${card.refundedCents}:${cents}`);
+      await refundCard(card.providerRef, cents, `admin:${parsed.data.paymentId}:${card.refundedCents}:${cents}`, card.provider === "stripe_connect");
     } catch (e) {
       console.error("[payments] refund failed", e);
       return fail("provider");

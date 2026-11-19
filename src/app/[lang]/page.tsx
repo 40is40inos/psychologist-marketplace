@@ -12,6 +12,8 @@ import { getTaxonomy } from "@/lib/taxonomy-data";
 import { SearchForm } from "@/components/search-form";
 import { SessionTypeIcon } from "@/components/session-type-icon";
 import { PsychologistCard } from "@/components/psychologist-card";
+import { JsonLd } from "@/components/faq-list";
+import { siteJsonLd } from "@/lib/structured-data";
 
 /** Shortcuts under the search: the most common reasons people reach out. */
 const POPULAR: Concern[] = ["anxiety", "depression", "relationships", "stress", "trauma", "grief", "self_esteem", "parenting"];
@@ -27,6 +29,7 @@ export default async function HomePage({ params }: PageProps<"/[lang]">) {
 
   return (
     <>
+      <JsonLd data={siteJsonLd(lang)} />
       {/* Hero + search */}
       <section className="border-b border-border bg-gradient-to-b from-primary-soft/60 to-bg">
         <div className="mx-auto max-w-6xl px-4 pb-14 pt-12 sm:px-6 sm:pt-16 lg:pb-20">

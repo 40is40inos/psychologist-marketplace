@@ -1,5 +1,5 @@
 import type Stripe from "stripe";
-import { completeCheckout, expireCheckout } from "@/lib/card-booking";
+import { completeCheckout, expireCheckout, updateConnectAccount } from "@/lib/card-booking";
 import { verifyWebhook } from "@/lib/payments";
 
 /**
@@ -24,6 +24,8 @@ export async function POST(request: Request) {
     case "checkout.session.expired":
     case "checkout.session.async_payment_failed":
       return Response.json({ result: (await expireCheckout(event.data.object)) ? "released" : "ignored" });
+    case "account.updated":
+      return Response.json({ result: await updateConnectAccount(event.data.object) });
     default:
       return Response.json({ result: "ignored" });
   }

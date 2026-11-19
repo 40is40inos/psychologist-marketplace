@@ -2,7 +2,7 @@ import "server-only";
 import type Stripe from "stripe";
 import { db } from "@/lib/db";
 import { markPaidAndInvoice } from "@/lib/invoicing";
-import { capturePayment, refundCard, voidPayment } from "@/lib/payments";
+import { accountReady, capturePayment, refundCard, voidPayment } from "@/lib/payments";
 import { queueNotification, scheduleBookingNotifications } from "@/lib/notifications/schedule";
 
 /**
@@ -43,7 +43,7 @@ export async function completeCheckout(session: Stripe.Checkout.Session) {
 
     await tx.payment.update({
       where: { id: a.payment.id },
-      data: { provider: "stripe", providerRef: pi, expiresAt: null, ...(approval && { status: "authorized" }) },
+      data: { providerRef: pi, expiresAt: null, ...(approval && { status: "authorized" }) },
     });
     await tx.appointment.update({ where: { id: a.id }, data: { status: approval ? "pending" : "confirmed" } });
     await tx.conversation.upsert({
@@ -62,7 +62,8 @@ export async function completeCheckout(session: Stripe.Checkout.Session) {
 
   if (result === "orphan") {
     // Paid after the hold was released (rare race): give the money back.
-    await (approval ? voidPayment(pi) : refundCard(pi, session.amount_total ?? 0, `orphan:${pi}`));
+    const connect = session.metadata?.connect === "1";
+    await (approval ? voidPayment(pi) : refundCard(pi, session.amount_total ?? 0, `orphan:${pi}`, connect));
     return "refunded";
   }
   if (typeof result === "string") return result;
@@ -82,6 +83,12 @@ export async function releaseHold(appointmentId: string) {
   });
 }
 
+/** account.updated (Connect): a psychologist finished or changed payout onboarding. */
+export async function updateConnectAccount(account: Stripe.Account) {
+  const r = await db.psychologistProfile.updateMany({ where: { stripeAccountId: account.id }, data: { stripeReady: accountReady(account) } });
+  return r.count ? "updated" : "ignored";
+}
+
 /** checkout.session.expired */
 export async function expireCheckout(session: Stripe.Checkout.Session) {
   const id = session.metadata?.appointmentId;
@@ -95,7 +102,8 @@ export async function expireCheckout(session: Stripe.Checkout.Session) {
 export async function settleCardPayment(appointmentId: string, event: "accepted" | "cancelled", refundCents?: number) {
   const a = await db.appointment.findUnique({ where: { id: appointmentId }, include: { payment: true } });
   const pay = a?.payment;
-  if (!a || !pay || pay.method !== "card" || pay.provider !== "stripe" || !pay.providerRef) return;
+  if (!a || !pay || pay.method !== "card" || !pay.provider?.startsWith("stripe") || !pay.providerRef) return;
+  const connect = pay.provider === "stripe_connect";
 
   if (pay.status === "authorized") {
     if (event === "accepted") {
@@ -118,7 +126,7 @@ export async function settleCardPayment(appointmentId: string, event: "accepted"
   if (pay.status === "paid" && event === "cancelled") {
     const cents = Math.min(refundCents ?? pay.amountCents, pay.amountCents - pay.refundedCents);
     if (cents <= 0) return;
-    await refundCard(pay.providerRef, cents, `cancel:${a.id}`);
+    await refundCard(pay.providerRef, cents, `cancel:${a.id}`, connect);
     const total = pay.refundedCents + cents;
     await db.payment.update({
       where: { id: pay.id },

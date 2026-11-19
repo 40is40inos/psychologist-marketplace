@@ -41,6 +41,12 @@ export async function createCheckout(input: {
   locale: Locale;
   manualCapture: boolean;
   expiresAt: Date;
+  /**
+   * Stripe Connect destination charge: the psychologist's account receives
+   * the payment minus the platform commission (application fee). The
+   * platform stays merchant of record, so the neutral statement name holds.
+   */
+  connect?: { accountId: string; feeCents: number };
 }): Promise<{ id: string; url: string }> {
   const base = brand.siteUrl.replace(/\/$/, "");
   const back = `${base}/${input.locale}/account/appointments/${input.appointmentId}`;
@@ -66,8 +72,12 @@ export async function createCheckout(input: {
         capture_method: input.manualCapture ? "manual" : "automatic",
         statement_descriptor_suffix: brand.statementDescriptor.slice(0, 22),
         metadata: { appointmentId: input.appointmentId },
+        ...(input.connect && {
+          application_fee_amount: input.connect.feeCents,
+          transfer_data: { destination: input.connect.accountId },
+        }),
       },
-      metadata: { appointmentId: input.appointmentId, approval: input.manualCapture ? "1" : "0" },
+      metadata: { appointmentId: input.appointmentId, approval: input.manualCapture ? "1" : "0", ...(input.connect && { connect: "1" }) },
       client_reference_id: input.appointmentId,
       expires_at: Math.floor(input.expiresAt.getTime() / 1000),
       success_url: `${back}?paid=1`,
@@ -95,13 +105,68 @@ export async function voidPayment(paymentIntentId: string) {
   return stripe().paymentIntents.cancel(paymentIntentId);
 }
 
-export async function refundCard(paymentIntentId: string, amountCents: number, key: string) {
-  return stripe().refunds.create({ payment_intent: paymentIntentId, amount: amountCents }, { idempotencyKey: key });
+/** Refund to the card. For Connect charges the transfer and the fee are reversed in proportion. */
+export async function refundCard(paymentIntentId: string, amountCents: number, key: string, connect = false) {
+  return stripe().refunds.create(
+    { payment_intent: paymentIntentId, amount: amountCents, ...(connect && { reverse_transfer: true, refund_application_fee: true }) },
+    { idempotencyKey: key },
+  );
 }
 
-/** Verify the Stripe-Signature header. Throws on a bad signature. */
+// ─── Stripe Connect (payouts to psychologists) ───────────────────────────────
+
+/** Create the psychologist's Express account (Greece; Stripe collects KYC and IBAN). */
+export async function createConnectAccount(email: string, profileId: string): Promise<string> {
+  const account = await stripe().accounts.create(
+    {
+      type: "express",
+      country: "GR",
+      email,
+      business_type: "individual",
+      capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
+      metadata: { profileId },
+    },
+    { idempotencyKey: `connect:${profileId}` },
+  );
+  return account.id;
+}
+
+/** Hosted onboarding (identity, bank account). Links are single-use and short-lived. */
+export async function onboardingUrl(accountId: string, locale: Locale): Promise<string> {
+  const back = `${brand.siteUrl.replace(/\/$/, "")}/${locale}/dashboard/payments`;
+  const link = await stripe().accountLinks.create({ account: accountId, type: "account_onboarding", refresh_url: `${back}?connect=refresh`, return_url: `${back}?connect=return` });
+  return link.url;
+}
+
+/** Stripe's Express dashboard for payouts and tax documents. */
+export async function payoutDashboardUrl(accountId: string): Promise<string> {
+  return (await stripe().accounts.createLoginLink(accountId)).url;
+}
+
+/** Ready to receive destination charges. */
+export function accountReady(a: Stripe.Account): boolean {
+  return Boolean(a.details_submitted && a.capabilities?.transfers === "active");
+}
+
+export async function fetchAccountReady(accountId: string): Promise<boolean> {
+  return accountReady(await stripe().accounts.retrieve(accountId));
+}
+
+/**
+ * Verify the Stripe-Signature header against the platform endpoint secret
+ * or, for Connect events (account.updated), the Connect endpoint secret.
+ * Throws when neither matches.
+ */
 export function verifyWebhook(payload: string, signature: string): Stripe.Event {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!secret) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
-  return Stripe.webhooks.constructEvent(payload, signature, secret);
+  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET].filter((s): s is string => Boolean(s));
+  if (!secrets.length) throw new Error("STRIPE_WEBHOOK_SECRET is not set");
+  let last: unknown;
+  for (const secret of secrets) {
+    try {
+      return Stripe.webhooks.constructEvent(payload, signature, secret);
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last;
 }

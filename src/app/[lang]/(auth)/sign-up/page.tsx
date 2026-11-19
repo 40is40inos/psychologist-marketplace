@@ -8,6 +8,7 @@ import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { getCurrentUser } from "@/lib/auth/session";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { SignUpForm } from "@/components/auth/sign-up-form";
+import { googleEnabled } from "@/lib/auth/google";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/sign-up">): Promise<Metadata> {
   const { lang } = await params;
@@ -51,7 +52,8 @@ async function Form({
 }) {
   const user = await getCurrentUser();
   if (user) redirect(`/${locale}${homePathFor(user.role)}`);
-  const { role, next } = await searchParams;
+  const { role, next, google: googleNotice } = await searchParams;
+  const noticeKey = googleNotice === "noaccount" || googleNotice === "consent" ? googleNotice : null;
   const safeNext = safeNextPath(Array.isArray(next) ? next[0] : next, locale) ?? undefined;
   return (
     <SignUpForm
@@ -61,6 +63,8 @@ async function Form({
       t={dict.auth}
       titles={dict.titles}
       legal={dict.legal}
+      google={googleEnabled() ? { label: dict.googleAuth.continue, or: dict.googleAuth.or, hint: dict.googleAuth.signupHint } : undefined}
+      notice={noticeKey ? dict.googleAuth.errors[noticeKey] : undefined}
     />
   );
 }

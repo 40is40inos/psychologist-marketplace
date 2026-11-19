@@ -13,6 +13,7 @@ import { fill, formatPrice, formatShortDate, formatTime } from "@/lib/format";
 import { getPublicProfile } from "@/lib/profile";
 import { track } from "@/lib/analytics";
 import { cardPaymentsEnabled } from "@/lib/payments";
+import { db } from "@/lib/db";
 import { brand } from "@/config/brand";
 import { Avatar } from "@/components/avatar";
 import { SessionTypeIcon } from "@/components/session-type-icon";
@@ -114,7 +115,7 @@ async function Book({ params, searchParams }: PageProps<"/[lang]/psychologists/[
             safety={{ urgentHelp: dict.urgentHelp, risk: dict.risk }}
             hidden={{ slug, type, kind, start: start.toISOString(), locale: lang }}
             card={
-              cardPaymentsEnabled() && price > 0
+              cardPaymentsEnabled() && price > 0 && (await payoutsReady(slug))
                 ? { t: dict.pay, statement: fill(dict.pay.statement, { descriptor: brand.statementDescriptor }), approval: p.requiresApproval }
                 : undefined
             }
@@ -140,4 +141,9 @@ function Steps({ dict, current }: { dict: Dictionary; current: number }) {
       ))}
     </ol>
   );
+}
+
+/** Card payments need the psychologist's Stripe payout account to be ready. */
+async function payoutsReady(slug: string): Promise<boolean> {
+  return Boolean(await db.psychologistProfile.findFirst({ where: { slug, stripeReady: true }, select: { id: true } }));
 }
