@@ -12,7 +12,7 @@ export function SiteHeader({ locale, dict }: { locale: Locale; dict: Dictionary 
     { href: `/${locale}/psychologists`, label: dict.nav.findPsychologist },
     { href: `/${locale}/match`, label: dict.match.cta },
     { href: `/${locale}#how-it-works`, label: dict.nav.howItWorks },
-    { href: `/${locale}#for-psychologists`, label: dict.nav.forPsychologists },
+    { href: `/${locale}/for-psychologists`, label: dict.nav.forPsychologists },
   ];
 
   return (

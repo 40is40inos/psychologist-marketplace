@@ -1,6 +1,6 @@
 "use server";
 
-import { refresh } from "next/cache";
+import { refresh, updateTag } from "next/cache";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { assertPermission } from "@/lib/auth/session";
@@ -62,6 +62,7 @@ export async function savePlan(_p: PlanState, fd: FormData): Promise<PlanState> 
     // Most likely a duplicate code (slug).
     return { error: "invalid", at: Date.now() };
   }
+  updateTag("plans");
   refresh();
   return { ok: true, at: Date.now() };
 }

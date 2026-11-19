@@ -196,7 +196,7 @@ function ForPsychologists({ lang, dict }: { lang: Locale; dict: Dictionary }) {
           <h2 className="font-display text-2xl font-semibold tracking-tight sm:text-3xl">{dict.home.ctaTitle}</h2>
           <p className="mt-3 max-w-xl opacity-90">{dict.home.ctaBody}</p>
           <Link
-            href={`/${lang}/sign-up?role=psychologist`}
+            href={`/${lang}/for-psychologists`}
             className="mt-6 inline-flex h-12 items-center rounded-xl bg-primary-ink px-5 font-semibold text-primary transition-opacity hover:opacity-90"
           >
             {fill(dict.home.ctaButton, { brand: brand.name })}

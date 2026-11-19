@@ -176,6 +176,35 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cro
 | Reassuring microcopy | e.g. "It's okay not to know where to start" on the home page, gentle empty-state and no-results copy, in Greek and English |
 | Trust signals | Verified badge plus licence number on every card and profile, "We checked this licence" note, "No booking fees or hidden costs" on cards, profiles and the booking summary |
 
+## Section 9 — pages
+Every route is under `/el/…` and `/en/…`.
+
+| Page | Route |
+|---|---|
+| Home | `/` |
+| Search results (filters, list/map) | `/psychologists` |
+| Psychologist profile | `/psychologists/[slug]` |
+| Matching questionnaire | `/match`, `/match/results` |
+| Booking flow | `/psychologists/[slug]/book` → `/account/appointments/[id]` |
+| Client dashboard | `/account` (appointments, messages, saved, receipts, settings, privacy) |
+| Psychologist dashboard | `/dashboard` (calendar, appointments, clients, payments, profile, analytics, plan, feedback, messages) |
+| Video session room | `/session/[id]` |
+| Admin panel | `/admin` |
+| For psychologists (benefits, plans from the database, sign-up) | `/for-psychologists` |
+| Blog / articles | `/blog`, `/blog/[slug]` |
+| Concern pages (SEO) | `/anxiety`, `/depression`, … (every active concern with at least one public profile) |
+| City pages (SEO) | `/psychologists-athens`, `/psychologists-thessaloniki`, … |
+| About, Privacy, Terms, Cookies, Cancellation, Terms for psychologists | `/p/[slug]` (CMS) |
+| FAQ | `/faq` |
+| Contact (rate-limited form, emailed to support, nothing stored) | `/contact` |
+| Crisis resources | `/urgent-help` |
+
+Concern and city pages show live listings, price and online stats, internal
+links and an FAQ with `FAQPage` + `BreadcrumbList` structured data. Optional
+editorial copy comes from CMS pages named `concern-<slug>` / `city-<slug>`
+(see the seeded `concern-anxiety`). `/sitemap.xml` lists all public pages with
+hreflang alternates; `/robots.txt` keeps private areas out of search.
+
 ## Conventions
 - Money is integer cents + currency; timestamps are UTC; display uses Europe/Athens.
 - Greek names are transliterated (ELOT 743) on non-Greek pages: `src/lib/slug.ts`.

@@ -1,4 +1,5 @@
 import "server-only";
+import { cacheLife, cacheTag } from "next/cache";
 import { db } from "@/lib/db";
 import type { Locale } from "@/i18n/config";
 
@@ -36,6 +37,14 @@ function toInfo(p: { id: string; slug: string; name: unknown; monthlyPriceCents:
 export async function listPlans(locale: Locale, includeInactive = false): Promise<PlanInfo[]> {
   const rows = await db.plan.findMany({ where: includeInactive ? {} : { active: true }, orderBy: { sortOrder: "asc" } });
   return rows.map((r) => toInfo(r, locale));
+}
+
+/** Active plans for the public "For psychologists" page. */
+export async function getPublicPlans(locale: Locale): Promise<PlanInfo[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("plans");
+  return listPlans(locale);
 }
 
 /** The plan in effect for a psychologist (their own, else the default). */

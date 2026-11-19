@@ -12,6 +12,31 @@ export interface SeedContent {
 
 export const content: SeedContent[] = [
   {
+    // Editorial copy shown on the /anxiety landing page (edit in Admin > Content).
+    kind: "page",
+    slug: "concern-anxiety",
+    el: {
+      title: "Άγχος",
+      body: `## Τι είναι το άγχος
+
+Το άγχος είναι φυσική αντίδραση του σώματος. Όταν όμως γίνεται έντονο ή συνεχές, μπορεί να επηρεάσει τον ύπνο, τη δουλειά και τις σχέσεις.
+
+## Πώς βοηθά ο ψυχολόγος
+
+Με προσεγγίσεις όπως η γνωσιακή συμπεριφορική θεραπεία μαθαίνετε να αναγνωρίζετε τι πυροδοτεί το άγχος και να το διαχειρίζεστε με πρακτικά εργαλεία.`,
+    },
+    en: {
+      title: "Anxiety",
+      body: `## What anxiety is
+
+Anxiety is a natural response of the body. When it becomes intense or constant, it can affect sleep, work and relationships.
+
+## How a psychologist can help
+
+With approaches such as cognitive behavioural therapy you learn to notice what triggers your anxiety and manage it with practical tools.`,
+    },
+  },
+  {
     kind: "page",
     slug: "about",
     el: {
