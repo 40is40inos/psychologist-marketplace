@@ -7,6 +7,12 @@ import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { fill, formatList, formatPrice, formatShortDate } from "@/lib/format";
 import { findMatches, parseAnswers, type Reason } from "@/lib/matching";
+import { forgetMatchAnswers, saveMatchAnswers } from "@/actions/client-profile";
+import { getCurrentUser } from "@/lib/auth/session";
+import { decrypt } from "@/lib/crypto";
+import { db } from "@/lib/db";
+import { FormAlert } from "@/components/ui/form";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { getTaxonomy } from "@/lib/taxonomy-data";
 import { PsychologistCard } from "@/components/psychologist-card";
 import { RiskSupport } from "@/components/crisis-notice";
@@ -50,13 +56,25 @@ function reasonText(r: Reason, dict: Dictionary, locale: Locale, labels: Record<
 }
 
 async function Results({ locale, dict, searchParams }: { locale: Locale; dict: Dictionary; searchParams: PageProps<"/[lang]/match/results">["searchParams"] }) {
-  const sp = await searchParams;
+  let sp: Record<string, string | string[] | undefined> = await searchParams;
+  const user = await getCurrentUser();
+  const isClient = user?.role === "client";
+  // "Saved matches": answers come from the encrypted profile, not the URL.
+  const fromSaved = sp.saved === "1" && isClient;
+  if (fromSaved) {
+    const cp = await db.clientProfile.findUnique({ where: { userId: user!.id }, select: { matchAnswersEncrypted: true } });
+    if (!cp?.matchAnswersEncrypted) redirect(`/${locale}/match`);
+    const record: Record<string, string[]> = {};
+    for (const [k, v] of new URLSearchParams(decrypt(cp.matchAnswersEncrypted))) (record[k] ??= []).push(v);
+    sp = record;
+  }
   const answers = parseAnswers(sp);
   if (!answers) redirect(`/${locale}/match`);
+  const answerQuery = new URLSearchParams(
+    Object.entries(sp).flatMap(([k, v]) => (k === "saved" ? [] : Array.isArray(v) ? v.map((x) => [k, x]) : v ? [[k, v]] : [])),
+  ).toString();
   const [matches, taxonomy] = await Promise.all([findMatches(answers, locale, dict.titles), getTaxonomy(locale)]);
-  const retake = `/${locale}/match?${new URLSearchParams(
-    Object.entries(sp).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : v ? [[k, v]] : [])),
-  )}`;
+  const retake = `/${locale}/match?${answerQuery}`;
 
   return (
     <>
@@ -67,7 +85,21 @@ async function Results({ locale, dict, searchParams }: { locale: Locale; dict: D
       )}
       <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">{dict.match.resultsTitle}</h1>
       <p className="mt-2 max-w-2xl text-muted">{dict.match.resultsSubtitle}</p>
+      {fromSaved && <div className="mt-4"><FormAlert tone="success">{dict.clientPrefs.savedNotice}</FormAlert></div>}
       <div className="mt-4 flex flex-wrap gap-2">
+        {isClient && !fromSaved && (
+          <form action={saveMatchAnswers}>
+            <input type="hidden" name="locale" value={locale} />
+            <input type="hidden" name="answers" value={answerQuery} />
+            <SubmitButton>{dict.clientPrefs.saveMatches}</SubmitButton>
+          </form>
+        )}
+        {fromSaved && (
+          <form action={forgetMatchAnswers}>
+            <input type="hidden" name="locale" value={locale} />
+            <SubmitButton variant="secondary">{dict.clientPrefs.forget}</SubmitButton>
+          </form>
+        )}
         <Link href={retake} className={buttonClass.secondary}>{dict.match.retake}</Link>
         <Link href={`/${locale}/psychologists`} className={buttonClass.secondary}>{dict.match.browseAll}</Link>
       </div>

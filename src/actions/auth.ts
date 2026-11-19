@@ -139,6 +139,7 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
       passwordHash: await hashPassword(password),
       role,
       locale,
+      ...(role === "client" && { clientProfile: { create: {} } }),
       ...(pro?.success && {
         psychologistProfile: {
           create: {

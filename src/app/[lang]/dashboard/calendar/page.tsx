@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { randomBytes } from "node:crypto";
 import { CalendarSync, Lock, RefreshCw, Trash2 } from "lucide-react";
-import { addTimeOff, connectCalendar, disconnectCalendar, removeTimeOff, resetFeedToken, saveBookingRules, syncCalendarNow } from "@/actions/calendar";
+import { addException, connectCalendar, disconnectCalendar, removeException, resetFeedToken, saveBookingRules, syncCalendarNow } from "@/actions/calendar";
 import { brand } from "@/config/brand";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
@@ -42,7 +42,7 @@ async function Calendar({ locale, dict }: { locale: Locale; dict: Dictionary }) 
     where: { id: profileId },
     include: {
       availability: { orderBy: [{ weekday: "asc" }, { startMinute: "asc" }] },
-      timeOff: { where: { endsAt: { gte: now } }, orderBy: { startsAt: "asc" } },
+      exceptions: { where: { endsAt: { gte: now } }, orderBy: { startsAt: "asc" } },
       calendars: { include: { _count: { select: { busy: true } } } },
     },
   });
@@ -51,7 +51,7 @@ async function Calendar({ locale, dict }: { locale: Locale; dict: Dictionary }) 
     profile = await db.psychologistProfile.update({
       where: { id: profileId },
       data: { calendarFeedToken: randomBytes(24).toString("base64url") },
-      include: { availability: { orderBy: [{ weekday: "asc" }, { startMinute: "asc" }] }, timeOff: { where: { endsAt: { gte: now } }, orderBy: { startsAt: "asc" } }, calendars: { include: { _count: { select: { busy: true } } } } },
+      include: { availability: { orderBy: [{ weekday: "asc" }, { startMinute: "asc" }] }, exceptions: { where: { endsAt: { gte: now } }, orderBy: { startsAt: "asc" } }, calendars: { include: { _count: { select: { busy: true } } } } },
     });
   }
   const canSync = await hasFeature(profileId, "calendar_sync");
@@ -105,15 +105,16 @@ async function Calendar({ locale, dict }: { locale: Locale; dict: Dictionary }) 
           <h2 id="timeoff" className="text-lg font-semibold text-ink">{t.timeOff}</h2>
           <p className="text-sm text-muted">{t.timeOffHint}</p>
         </div>
-        {profile.timeOff.length ? (
+        {profile.exceptions.length ? (
           <ul className="divide-y divide-border rounded-2xl border border-border bg-surface">
-            {profile.timeOff.map((o) => (
+            {profile.exceptions.map((o) => (
               <li key={o.id} className="flex items-center justify-between gap-3 p-4 text-sm">
                 <span className="text-ink">
+                  <span className={`mr-2 rounded-full px-2 py-0.5 text-xs font-medium ${o.kind === "available" ? "bg-primary-soft text-primary" : "bg-surface-muted text-muted"}`}>{t.exceptionKinds[o.kind]}</span>
                   {formatShortDate(o.startsAt, locale)} {formatTime(o.startsAt, locale)} – {formatShortDate(o.endsAt, locale)} {formatTime(o.endsAt, locale)}
                   {o.note && <span className="text-muted"> · {o.note}</span>}
                 </span>
-                <form action={removeTimeOff}>
+                <form action={removeException}>
                   <input type="hidden" name="id" value={o.id} />
                   <button type="submit" aria-label={t.removeRange} className="grid size-9 place-items-center rounded-lg text-muted hover:text-accent"><Trash2 className="size-4" aria-hidden="true" /></button>
                 </form>
@@ -124,7 +125,18 @@ async function Calendar({ locale, dict }: { locale: Locale; dict: Dictionary }) 
           <p className="text-sm text-muted">{t.noTimeOff}</p>
         )}
         <div className="rounded-2xl border border-border bg-surface p-5">
-          <ActionForm action={addTimeOff} submitLabel={t.addTimeOff} errors={errors} variant="secondary" resetOnSuccess>
+          <ActionForm action={addException} submitLabel={t.addTimeOff} errors={errors} variant="secondary" resetOnSuccess>
+            <fieldset className="mb-4">
+              <legend className="mb-2 text-sm font-medium text-ink">{t.exceptionKind}</legend>
+              <div className="flex flex-wrap gap-2">
+                {(["unavailable", "available"] as const).map((k) => (
+                  <label key={k} className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary-soft/50">
+                    <input type="radio" name="kind" value={k} defaultChecked={k === "unavailable"} className="size-4 accent-[var(--primary)]" />
+                    {t.exceptionKinds[k]}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
             <div className="grid gap-4 sm:grid-cols-3">
               <Field id="start" label={t.start}><input id="start" name="start" type="datetime-local" required className={inputClass} /></Field>
               <Field id="end" label={t.end}><input id="end" name="end" type="datetime-local" required className={inputClass} /></Field>

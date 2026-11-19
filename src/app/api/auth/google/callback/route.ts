@@ -53,6 +53,7 @@ export async function GET(request: Request) {
         emailVerifiedAt: new Date(),
         role: "client",
         locale,
+        clientProfile: { create: {} },
         consents: { create: (["terms", "privacy", "health_data"] as const).map((kind) => ({ kind, version: LEGAL_VERSION, userAgent })) },
       },
       select,

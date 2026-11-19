@@ -21,10 +21,18 @@ export interface Busy {
   startsAt: Date;
   endsAt: Date;
 }
+/** One-off extra hours (AvailabilityException with kind "available"). */
+export interface Extra {
+  startsAt: Date;
+  endsAt: Date;
+  sessionTypes: SessionType[];
+}
 
 export interface SlotQuery {
   rules: Rule[];
   busy: Busy[];
+  /** Extra dated windows on top of the weekly rules. */
+  extra?: Extra[];
   /** Session format, or null for an intro call (allowed in any window). */
   type: SessionType | null;
   durationMinutes: number;
@@ -55,6 +63,24 @@ export function generateSlots(q: SlotQuery): Date[] {
   const step = stepFor(q.durationMinutes, buffer);
   const blockMs = (q.durationMinutes + buffer) * 60_000;
   const today = localDateKey(q.earliest);
+  const seen = new Set<number>();
+  const free = (start: Date) => {
+    const end = new Date(start.getTime() + blockMs);
+    return !q.busy.some((b) => start < new Date(b.endsAt.getTime() + buffer * 60_000) && end > b.startsAt);
+  };
+
+  // One-off extra hours: same rules (notice, buffer, clashes) as weekly windows.
+  const [ty, tm, td] = addDaysToKey(today, q.days).split("-").map(Number);
+  const horizon = zonedToUtc(ty, tm, td, 0);
+  for (const x of q.extra ?? []) {
+    if (q.type !== null && x.sessionTypes.length > 0 && !x.sessionTypes.includes(q.type)) continue;
+    for (let t = x.startsAt.getTime(); t + q.durationMinutes * 60_000 <= x.endsAt.getTime(); t += step * 60_000) {
+      const start = new Date(t);
+      if (start < q.earliest || start >= horizon || !free(start)) continue;
+      seen.add(t);
+      slots.push(start);
+    }
+  }
 
   for (let i = 0; i < q.days; i++) {
     const key = addDaysToKey(today, i);
@@ -66,10 +92,8 @@ export function generateSlots(q: SlotQuery): Date[] {
     for (const w of windows) {
       for (let minute = w.startMinute; minute + q.durationMinutes <= w.endMinute; minute += step) {
         const start = zonedToUtc(y, m, d, minute);
-        if (start < q.earliest) continue;
-        const end = new Date(start.getTime() + blockMs);
-        const clash = q.busy.some((b) => start < new Date(b.endsAt.getTime() + buffer * 60_000) && end > b.startsAt);
-        if (clash) continue;
+        if (start < q.earliest || seen.has(start.getTime()) || !free(start)) continue;
+        seen.add(start.getTime());
         slots.push(start);
         if (q.limit && slots.length >= q.limit) return slots.sort((a, b) => +a - +b);
       }
@@ -87,6 +111,7 @@ interface ProfileTiming {
 interface Schedule {
   rules: Rule[];
   busy: Busy[];
+  extra: Extra[];
   bufferMinutes: number;
 }
 
@@ -99,7 +124,8 @@ async function loadSchedules(ids: string[], until: Date, client: Client = db): P
   // Sequential on purpose: a transaction client runs one query at a time.
   const profiles = await client.psychologistProfile.findMany({ where: { id: { in: ids } }, select: { id: true, bufferMinutes: true } });
   const rules = await client.availabilityRule.findMany({ where: { psychologistId: { in: ids } } });
-  const timeOff = await client.timeOff.findMany({ where: { psychologistId: { in: ids }, endsAt: { gte: now }, startsAt: { lte: until } } });
+  // Exceptions: blocked time and one-off extra hours.
+  const exceptions = await client.availabilityException.findMany({ where: { psychologistId: { in: ids }, endsAt: { gte: now }, startsAt: { lte: until } } });
   const appts = await client.appointment.findMany({
     where: { psychologistId: { in: ids }, status: { in: ["awaiting_payment", "pending", "confirmed"] }, endsAt: { gte: now }, startsAt: { lte: until } },
     select: { psychologistId: true, startsAt: true, endsAt: true },
@@ -109,10 +135,14 @@ async function loadSchedules(ids: string[], until: Date, client: Client = db): P
     select: { startsAt: true, endsAt: true, calendar: { select: { psychologistId: true } } },
   });
 
-  const by = new Map<string, Schedule>(ids.map((id) => [id, { rules: [], busy: [], bufferMinutes: BUFFER_MINUTES }]));
+  const by = new Map<string, Schedule>(ids.map((id) => [id, { rules: [], busy: [], extra: [], bufferMinutes: BUFFER_MINUTES }]));
   for (const p of profiles) by.get(p.id)!.bufferMinutes = p.bufferMinutes;
   for (const r of rules) by.get(r.psychologistId)!.rules.push(r);
-  for (const t of timeOff) by.get(t.psychologistId)!.busy.push(t);
+  for (const x of exceptions) {
+    const sched = by.get(x.psychologistId)!;
+    if (x.kind === "available") sched.extra.push({ startsAt: x.startsAt, endsAt: x.endsAt, sessionTypes: x.sessionTypes });
+    else sched.busy.push(x);
+  }
   for (const a of appts) by.get(a.psychologistId)!.busy.push(a);
   for (const e of external) by.get(e.calendar.psychologistId)!.busy.push(e);
   return by;

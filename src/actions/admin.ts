@@ -43,9 +43,22 @@ export async function decideVerification(
   const done = await db.$transaction(async (tx) => {
     const profile = await tx.psychologistProfile.findUnique({
       where: { id: profileId },
-      select: { verificationStatus: true, user: { select: { name: true } } },
+      select: { verificationStatus: true, licenseNumber: true, licensingAuthority: true, countryCode: true, user: { select: { name: true } } },
     });
     if (!profile || profile.verificationStatus !== "pending") return false;
+
+    // History: the licence exactly as it was checked, and the decision.
+    await tx.licenseVerification.create({
+      data: {
+        psychologistId: profileId,
+        licenseNumber: profile.licenseNumber,
+        licensingAuthority: profile.licensingAuthority,
+        countryCode: profile.countryCode,
+        decision: decision === "approve" ? "verified" : "rejected",
+        note: reason || null,
+        reviewerId: admin.id,
+      },
+    });
 
     await tx.psychologistProfile.update({
       where: { id: profileId },

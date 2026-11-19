@@ -15,6 +15,8 @@ export interface VerificationItem {
   licensingAuthority: string;
   submitted: string;
   documents: { id: string; label: string }[];
+  /** Earlier decisions on this profile (e.g. a rejected first application). */
+  history?: string[];
 }
 
 export function VerificationCard({ item, t, docs }: { item: VerificationItem; t: Dictionary["admin"]["verifications"]; docs: Dictionary["adminDocs"] }) {
@@ -42,6 +44,11 @@ export function VerificationCard({ item, t, docs }: { item: VerificationItem; t:
       </dl>
 
       <div className="mt-3 text-sm">
+        {item.history && item.history.length > 0 && (
+          <ul className="mb-3 space-y-1 rounded-xl bg-surface-muted p-3 text-sm text-muted">
+            {item.history.map((h) => <li key={h}>{h}</li>)}
+          </ul>
+        )}
         <p className="font-medium text-ink">{docs.documents}</p>
         {item.documents.length === 0 ? (
           <p className="text-muted">{docs.noDocuments}</p>

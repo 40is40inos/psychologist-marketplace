@@ -46,7 +46,7 @@ async function Client({ params }: PageProps<"/[lang]/dashboard/clients/[id]">) {
   const appts = await db.appointment.findMany({
     where: { psychologistId: profileId, clientId: id, rescheduledTo: null },
     orderBy: { startsAt: "desc" },
-    include: { client: { select: { name: true } } },
+    include: { client: { select: { name: true } }, intake: { select: { answersEncrypted: true } } },
   });
   // Only people this psychologist has a booking with.
   if (appts.length === 0) notFound();
@@ -56,7 +56,7 @@ async function Client({ params }: PageProps<"/[lang]/dashboard/clients/[id]">) {
   ]);
   const name = appts[0].client.name;
   logAccess(user.id, "client_record.view", "User", id);
-  const latestIntake = appts.map((a) => read(a.intakeEncrypted)).find(Boolean);
+  const latestIntake = appts.map((a) => read(a.intake?.answersEncrypted ?? null)).find(Boolean);
   const intake = latestIntake ? (JSON.parse(latestIntake) as { reason?: string; notes?: string }) : null;
 
   return (

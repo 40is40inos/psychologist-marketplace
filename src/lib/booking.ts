@@ -84,8 +84,10 @@ export async function createBooking(input: {
           priceCents,
           locale: input.locale,
           paymentMethod: online ? "card" : "pay_at_session",
-          intakeEncrypted: input.intake.reason || input.intake.notes ? encrypt(JSON.stringify(input.intake)) : null,
-          intakeRisk: suggestsRisk(input.intake.reason, input.intake.notes),
+          // Intake answers are their own encrypted record (IntakeForm), only when given.
+          ...((input.intake.reason || input.intake.notes) && {
+            intake: { create: { answersEncrypted: encrypt(JSON.stringify(input.intake)), riskFlag: suggestsRisk(input.intake.reason, input.intake.notes) } },
+          }),
           payment: {
             create: online
               ? { amountCents: priceCents, method: "card", status: "pending", provider: "stripe", expiresAt: new Date(Date.now() + CHECKOUT_HOLD_MINUTES * 60_000) }
@@ -189,14 +191,13 @@ export async function rescheduleBooking(clientId: string, appointmentId: string,
           priceCents: a.priceCents,
           locale: a.locale,
           paymentMethod: a.paymentMethod,
-          intakeEncrypted: a.intakeEncrypted,
-          intakeRisk: a.intakeRisk,
           rescheduledFromId: a.id,
         },
         select: { id: true, startsAt: true },
       });
-      // The payment follows the session.
+      // The payment and the intake answers follow the session.
       if (a.payment) await tx.payment.update({ where: { id: a.payment.id }, data: { appointmentId: moved.id } });
+      await tx.intakeForm.updateMany({ where: { appointmentId: a.id }, data: { appointmentId: moved.id } });
 
       const user = await tx.user.findUniqueOrThrow({
         where: { id: clientId },

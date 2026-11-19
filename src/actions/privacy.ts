@@ -55,7 +55,8 @@ export async function deleteAccount(_p: DeleteState, fd: FormData): Promise<Dele
     await tx.auditLog.create({ data: { actorId: user.id, action: "account.delete", targetType: "User", targetId: user.id } });
     // Content written by the client.
     await tx.message.deleteMany({ where: { senderId: user.id } });
-    await tx.appointment.updateMany({ where: { clientId: user.id }, data: { intakeEncrypted: null, intakeRisk: false } });
+    await tx.intakeForm.deleteMany({ where: { appointment: { clientId: user.id } } });
+    await tx.clientProfile.deleteMany({ where: { userId: user.id } });
     await tx.feedback.updateMany({ where: { clientId: user.id }, data: { comment: null } });
     await tx.savedPsychologist.deleteMany({ where: { userId: user.id } });
     await tx.notification.deleteMany({ where: { userId: user.id } });

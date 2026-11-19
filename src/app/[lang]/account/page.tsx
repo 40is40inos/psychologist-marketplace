@@ -35,6 +35,11 @@ export default async function AccountPage({ params, searchParams }: PageProps<"/
 async function Account({ locale, dict, searchParams }: { locale: Locale; dict: Dictionary; searchParams: PageProps<"/[lang]/account">["searchParams"] }) {
   const user = await requireRole(locale, "client", `/${locale}/account`);
   const sp = await searchParams;
+  const prefs = await db.clientProfile.findUnique({ where: { userId: user.id }, select: { preferredLanguage: true, preferredSessionType: true, matchSavedAt: true } });
+  const findHref = `/${locale}/psychologists?${new URLSearchParams({
+    ...(prefs?.preferredLanguage && { language: prefs.preferredLanguage }),
+    ...(prefs?.preferredSessionType && { format: prefs.preferredSessionType }),
+  })}`;
   const now = new Date();
 
   const appointments = await db.appointment.findMany({
@@ -70,6 +75,13 @@ async function Account({ locale, dict, searchParams }: { locale: Locale; dict: D
         </div>
       )}
 
+      {prefs?.matchSavedAt && (
+        <Link href={`/${locale}/match/results?saved=1`} className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-primary/30 bg-primary-soft/50 p-4 font-medium text-ink hover:border-primary">
+          {dict.clientPrefs.savedMatchesLink}
+          <span aria-hidden="true" className="text-primary">→</span>
+        </Link>
+      )}
+
       <section className="mt-8" aria-labelledby="upcoming">
         <h2 id="upcoming" className="text-lg font-semibold text-ink">{dict.account.upcoming}</h2>
         {upcoming.length ? (
@@ -81,7 +93,7 @@ async function Account({ locale, dict, searchParams }: { locale: Locale; dict: D
         ) : (
           <div className="mt-3">
             <EmptyState scene="calendar" title={dict.account.noUpcoming} body={dict.account.noUpcomingHint}>
-              <Link href={`/${locale}/psychologists`} className={buttonClass.primary}>{dict.account.findCta}</Link>
+              <Link href={findHref} className={buttonClass.primary}>{dict.account.findCta}</Link>
             </EmptyState>
           </div>
         )}

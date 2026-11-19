@@ -93,7 +93,7 @@ async function main() {
   const user = (email: string, name: string, role: "client" | "psychologist" | "admin", locale: "el" | "en" = "el") =>
     db.user.upsert({
       where: { email },
-      create: { email, name, role, locale, passwordHash, emailVerifiedAt: new Date() },
+      create: { email, name, role, locale, passwordHash, emailVerifiedAt: new Date(), ...(role === "client" && { clientProfile: { create: {} } }) },
       update: { passwordHash, status: "active" },
     });
 

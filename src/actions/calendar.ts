@@ -80,7 +80,7 @@ export async function saveBookingRules(_p: CalState, fd: FormData): Promise<CalS
   return done();
 }
 
-// ─── Time off ───────────────────────────────────────────────────────────────
+// ─── Availability exceptions (time off and extra hours) ─────────────────────
 
 const localDateTime = z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
 const fromLocal = (v: string) => {
@@ -89,21 +89,23 @@ const fromLocal = (v: string) => {
   return zonedToUtc(y, m, day, toMin(t));
 };
 
-export async function addTimeOff(_p: CalState, fd: FormData): Promise<CalState> {
+export async function addException(_p: CalState, fd: FormData): Promise<CalState> {
   const psychologistId = await me();
-  const parsed = z.object({ start: localDateTime, end: localDateTime, note: z.string().trim().max(200).default("") }).safeParse(Object.fromEntries(fd));
+  const parsed = z
+    .object({ start: localDateTime, end: localDateTime, kind: z.enum(["unavailable", "available"]).default("unavailable"), note: z.string().trim().max(200).default("") })
+    .safeParse(Object.fromEntries(fd));
   if (!parsed.success) return fail("invalid");
   const startsAt = fromLocal(parsed.data.start);
   const endsAt = fromLocal(parsed.data.end);
   if (endsAt <= startsAt) return fail("range");
-  await db.timeOff.create({ data: { psychologistId, startsAt, endsAt, note: parsed.data.note || null } });
+  await db.availabilityException.create({ data: { psychologistId, kind: parsed.data.kind, startsAt, endsAt, note: parsed.data.note || null } });
   refresh();
   return done();
 }
 
-export async function removeTimeOff(fd: FormData): Promise<void> {
+export async function removeException(fd: FormData): Promise<void> {
   const psychologistId = await me();
-  await db.timeOff.deleteMany({ where: { id: String(fd.get("id")), psychologistId } });
+  await db.availabilityException.deleteMany({ where: { id: String(fd.get("id")), psychologistId } });
   refresh();
 }
 

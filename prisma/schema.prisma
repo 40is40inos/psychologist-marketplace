@@ -266,6 +266,8 @@ model User {
   feedbackGiven       Feedback[]
   consents            ConsentRecord[]
   loginTokens         LoginToken[]
+  clientProfile       ClientProfile?
+  licenseReviews      LicenseVerification[] @relation("LicenseReviewer")
   notesAbout          SessionNote[]         @relation("NoteClient")
 
   @@index([role, status])
@@ -360,7 +362,8 @@ model PsychologistProfile {
   education     PsychologistEducation[]
   faqs          PsychologistFaq[]
   availability  AvailabilityRule[]
-  timeOff       TimeOff[]
+  exceptions    AvailabilityException[]
+  licenseHistory LicenseVerification[]
   savedBy       SavedPsychologist[]
   conversations Conversation[]
   feedback      Feedback[]
@@ -501,11 +504,22 @@ model AvailabilityRule {
 }
 
 /// Holidays and blocked time (UTC).
-model TimeOff {
-  id             String   @id @default(cuid())
+enum ExceptionKind {
+  /// Blocked: holiday, sick day, conference.
+  unavailable
+  /// Extra hours outside the weekly rules (e.g. one Saturday morning).
+  available
+}
+
+/// One-off change to the weekly AvailabilityRules for a date range.
+model AvailabilityException {
+  id             String        @id @default(cuid())
   psychologistId String
-  startsAt       DateTime
-  endsAt         DateTime
+  kind           ExceptionKind @default(unavailable)
+  startsAt       DateTime // UTC
+  endsAt         DateTime // UTC
+  /// For extra hours: formats offered (empty = all the psychologist's formats).
+  sessionTypes   SessionType[] @default([])
   note           String?
 
   psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
@@ -543,10 +557,6 @@ model Appointment {
   locale            Locale
   kind              AppointmentKind   @default(session)
   paymentMethod     PaymentMethod     @default(pay_at_session)
-  /// Intake answers, AES-256-GCM encrypted (src/lib/crypto.ts). Health data.
-  intakeEncrypted   String?           @db.Text
-  /// Intake text suggested risk of self-harm (shown to the psychologist; crisis resources shown to the client).
-  intakeRisk        Boolean           @default(false)
   cancelledAt       DateTime?
   /// True when cancelled inside the psychologist's cancellation window.
   lateCancellation  Boolean           @default(false)
@@ -567,6 +577,7 @@ model Appointment {
   videoRoom       VideoRoom?
   notes           SessionNote[]
   invoice         Invoice?
+  intake          IntakeForm?
 
   @@index([psychologistId, startsAt])
   @@index([clientId, startsAt])
@@ -982,4 +993,57 @@ model LoginToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+/// Client-only details, kept apart from the login (User) so the account
+/// table stays minimal. Optional by design (data minimisation).
+model ClientProfile {
+  id                    String       @id @default(cuid())
+  userId                String       @unique
+  /// Preferred session language (Language.code) and format, used as search defaults.
+  preferredLanguage     String?
+  preferredSessionType  SessionType?
+  /// Saved "Help me choose" answers, AES-256-GCM encrypted (they can reveal health concerns).
+  matchAnswersEncrypted String?      @db.Text
+  matchSavedAt          DateTime?
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/// Intake questionnaire for one appointment. Health data: answers are
+/// AES-256-GCM encrypted and every view is written to the audit log.
+model IntakeForm {
+  id               String   @id @default(cuid())
+  appointmentId    String   @unique
+  /// Encrypted JSON (reason, firstTime, notes).
+  answersEncrypted String   @db.Text
+  /// The text suggested risk of self-harm (src/lib/risk.ts).
+  riskFlag         Boolean  @default(false)
+  /// Question set version, so answers stay readable when questions change.
+  version          Int      @default(1)
+  submittedAt      DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
+
+/// History of licence checks: each admin decision with the licence details
+/// as they were at the time. The profile holds the current status.
+model LicenseVerification {
+  id                 String             @id @default(cuid())
+  psychologistId     String
+  licenseNumber      String
+  licensingAuthority String
+  countryCode        String             @db.Char(2)
+  decision           VerificationStatus
+  note               String?
+  reviewerId         String?
+  decidedAt          DateTime           @default(now())
+
+  psychologist PsychologistProfile @relation(fields: [psychologistId], references: [id], onDelete: Cascade)
+  reviewer     User?               @relation("LicenseReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([psychologistId, decidedAt])
 }

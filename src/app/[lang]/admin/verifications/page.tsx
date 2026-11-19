@@ -37,6 +37,7 @@ async function Queue({ locale, dict }: { locale: Locale; dict: Dictionary }) {
       user: { select: { name: true, email: true } },
       documents: { where: { kind: { in: ["license", "identity", "degree"] } }, select: { id: true, kind: true, filename: true } },
       submittedAt: true,
+      licenseHistory: { orderBy: { decidedAt: "desc" }, take: 5, select: { id: true, decision: true, licenseNumber: true, note: true, decidedAt: true } },
     },
   });
 
@@ -61,6 +62,9 @@ async function Queue({ locale, dict }: { locale: Locale; dict: Dictionary }) {
                   licensingAuthority: p.licensingAuthority,
                   submitted: fill(t.submitted, { date: formatShortDate(p.submittedAt ?? p.createdAt, locale) }),
                   documents: p.documents.map((d) => ({ id: d.id, label: `${d.kind === "license" ? t.license : d.kind} · ${d.filename}` })),
+                  history: p.licenseHistory.map((h) =>
+                    fill(t.historyLine, { date: formatShortDate(h.decidedAt, locale), decision: t.decisions[h.decision], number: h.licenseNumber }) + (h.note ? ` (${h.note})` : ""),
+                  ),
                 }}
               />
             ))}

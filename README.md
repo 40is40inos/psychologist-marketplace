@@ -222,6 +222,15 @@ hreflang alternates; `/robots.txt` keeps private areas out of search.
 - Google: set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (redirect URI `/api/auth/google/callback`). The buttons appear automatically.
 - Stripe Connect: enable Connect (Express) in the Stripe dashboard, add a Connect webhook for `account.updated` to `/api/webhooks/stripe` and set `STRIPE_CONNECT_WEBHOOK_SECRET`.
 
+## Section 11 — data model
+Every entity in the brief has a model; see **[docs/data-model.md](docs/data-model.md)**
+for the entity-to-model table, an ER diagram and where sensitive data is
+encrypted. Added in this section: `ClientProfile` (preferences, encrypted saved
+matches), `IntakeForm` (intake answers moved out of `Appointment`),
+`AvailabilityException` (was `TimeOff`; now also extra hours) and
+`LicenseVerification` (history of licence checks). The migration renames and
+copies existing rows, so no data is lost.
+
 ## Conventions
 - Money is integer cents + currency; timestamps are UTC; display uses Europe/Athens.
 - Greek names are transliterated (ELOT 743) on non-Greek pages: `src/lib/slug.ts`.

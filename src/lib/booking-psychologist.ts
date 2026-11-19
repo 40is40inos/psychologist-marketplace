@@ -92,12 +92,11 @@ export async function psychologistReschedule(psychologistId: string, appointment
           priceCents: a.priceCents,
           locale: a.locale,
           paymentMethod: a.paymentMethod,
-          intakeEncrypted: a.intakeEncrypted,
-          intakeRisk: a.intakeRisk,
           rescheduledFromId: a.id,
         },
       });
       if (a.payment) await tx.payment.update({ where: { id: a.payment.id }, data: { appointmentId: moved.id } });
+      await tx.intakeForm.updateMany({ where: { appointmentId: a.id }, data: { appointmentId: moved.id } });
       await scheduleBookingNotifications(tx, { appointmentId: moved.id, startsAt: moved.startsAt, user: a.client }, "reschedule");
       return moved;
     },

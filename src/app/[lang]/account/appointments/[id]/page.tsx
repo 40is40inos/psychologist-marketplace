@@ -42,6 +42,7 @@ async function Appointment({ params, searchParams }: PageProps<"/[lang]/account/
     where: { id, clientId: user.id },
     include: {
       payment: true,
+      intake: { select: { riskFlag: true } },
       feedback: { select: { id: true } },
       psychologist: {
         select: {
@@ -105,7 +106,7 @@ async function Appointment({ params, searchParams }: PageProps<"/[lang]/account/
           </form>
         </section>
       )}
-      {a.intakeRisk && (a.status === "pending" || a.status === "confirmed") && <RiskSupport dict={dict} id="appointment-risk" />}
+      {a.intake?.riskFlag && (a.status === "pending" || a.status === "confirmed") && <RiskSupport dict={dict} id="appointment-risk" />}
 
       <section className="rounded-2xl border border-border bg-surface p-5 sm:p-6">
         {!sp.booked && <h1 className="font-display text-2xl font-semibold text-ink">{fill(t.with, { name })}</h1>}

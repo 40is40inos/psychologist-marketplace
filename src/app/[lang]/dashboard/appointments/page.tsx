@@ -53,6 +53,7 @@ async function Appointments({ locale, dict, searchParams }: { locale: Locale; di
     take: 300,
     include: {
       client: { select: { id: true, name: true } },
+      intake: { select: { answersEncrypted: true, riskFlag: true } },
       payment: { select: { status: true, receiptNumber: true, commissionCents: true } },
       invoice: { select: { number: true, series: true, status: true } },
       psychologist: { select: { offices: { take: 1, select: { addressLine: true } } } },
@@ -63,8 +64,8 @@ async function Appointments({ locale, dict, searchParams }: { locale: Locale; di
   const past = all.filter((a) => !requests.includes(a) && !upcoming.includes(a)).reverse();
   const tab: Tab = sp.tab === "past" ? "past" : sp.tab === "requests" || (requests.length > 0 && sp.tab !== "upcoming") ? "requests" : "upcoming";
   const list = { requests, upcoming, past }[tab];
-  const withIntake = list.filter((a) => a.intakeEncrypted).map((a) => a.id);
-  if (withIntake.length) logAccess(user.id, "intake.view", "Appointment", withIntake.join(",").slice(0, 190), { count: withIntake.length });
+  const withIntake = list.filter((a) => a.intake).map((a) => a.id);
+  if (withIntake.length) logAccess(user.id, "intake.view", "IntakeForm", withIntake.join(",").slice(0, 190), { count: withIntake.length });
   const conversations = new Map(
     (await db.conversation.findMany({ where: { psychologistId: profileId }, select: { id: true, clientId: true } })).map((c) => [c.clientId, c.id]),
   );
@@ -87,7 +88,7 @@ async function Appointments({ locale, dict, searchParams }: { locale: Locale; di
       ) : (
         <ul className="space-y-3">
           {list.map((a) => {
-            const intake = intakeOf(a.intakeEncrypted);
+            const intake = intakeOf(a.intake?.answersEncrypted ?? null);
             const started = a.startsAt <= now;
             const win = joinWindow(a.startsAt, a.endsAt);
             const online = a.sessionType !== "in_person";
@@ -116,7 +117,7 @@ async function Appointments({ locale, dict, searchParams }: { locale: Locale; di
                   </span>
                 </div>
 
-                {a.intakeRisk && (
+                {a.intake?.riskFlag && (
                   <p role="note" className="mt-3 flex gap-2 rounded-xl border border-accent/40 bg-accent-soft p-3 text-sm font-medium text-ink">
                     <LifeBuoy className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden="true" />
                     {dict.risk.flagged}

@@ -21,7 +21,7 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const [profile, appointments, messages, feedback, consents, saved, profileData] = await Promise.all([
+  const [profile, appointments, messages, feedback, consents, saved, clientProfile, profileData] = await Promise.all([
     db.user.findUniqueOrThrow({
       where: { id: user.id },
       select: { id: true, email: true, name: true, phone: true, role: true, locale: true, createdAt: true, lastSignInAt: true, emailReminders: true, smsReminders: true, smsHideBrand: true, totpEnabledAt: true },
@@ -30,7 +30,8 @@ export async function GET() {
       where: { clientId: user.id },
       orderBy: { startsAt: "asc" },
       select: {
-        id: true, startsAt: true, endsAt: true, sessionType: true, kind: true, status: true, priceCents: true, currency: true, createdAt: true, intakeEncrypted: true,
+        id: true, startsAt: true, endsAt: true, sessionType: true, kind: true, status: true, priceCents: true, currency: true, createdAt: true,
+        intake: { select: { answersEncrypted: true, submittedAt: true } },
         psychologist: { select: { slug: true, user: { select: { name: true } } } },
         payment: { select: { amountCents: true, status: true, method: true, paidAt: true, receiptNumber: true, refundedCents: true } },
       },
@@ -43,6 +44,7 @@ export async function GET() {
     db.feedback.findMany({ where: { clientId: user.id }, select: { appointmentId: true, rating: true, comment: true, createdAt: true } }),
     db.consentRecord.findMany({ where: { userId: user.id }, orderBy: { grantedAt: "asc" }, select: { kind: true, version: true, grantedAt: true, withdrawnAt: true } }),
     db.savedPsychologist.findMany({ where: { userId: user.id }, select: { createdAt: true, psychologist: { select: { slug: true } } } }),
+    db.clientProfile.findUnique({ where: { userId: user.id }, select: { preferredLanguage: true, preferredSessionType: true, matchAnswersEncrypted: true, matchSavedAt: true } }),
     user.role === "psychologist"
       ? db.psychologistProfile.findUnique({
           where: { userId: user.id },
@@ -56,7 +58,16 @@ export async function GET() {
     exportedAt: new Date().toISOString(),
     account: profile,
     psychologistProfile: profileData,
-    appointments: appointments.map(({ intakeEncrypted, ...a }) => ({ ...a, intake: read(intakeEncrypted) ? JSON.parse(read(intakeEncrypted)!) : null })),
+    clientProfile: clientProfile && {
+      preferredLanguage: clientProfile.preferredLanguage,
+      preferredSessionType: clientProfile.preferredSessionType,
+      savedMatchAnswers: read(clientProfile.matchAnswersEncrypted),
+      matchSavedAt: clientProfile.matchSavedAt,
+    },
+    appointments: appointments.map(({ intake, ...a }) => {
+      const text = read(intake?.answersEncrypted ?? null);
+      return { ...a, intake: text ? { ...JSON.parse(text), submittedAt: intake!.submittedAt } : null };
+    }),
     messages: messages.map((m) => ({ conversationId: m.conversationId, fromMe: m.senderId === user.id, sentAt: m.createdAt, text: read(m.bodyEncrypted) })),
     feedback,
     consents,
