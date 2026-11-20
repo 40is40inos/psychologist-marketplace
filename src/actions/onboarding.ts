@@ -17,7 +17,7 @@ import { defaultLocale, isLocale, locales, type Locale } from "@/i18n/config";
 import { CURRENT_YEAR } from "@/lib/format";
 
 export interface StepState {
-  error?: "invalid" | "iban" | "taxId" | StoreError | "incomplete";
+  error?: "invalid" | "iban" | "taxId" | StoreError | "incomplete" | "email_unverified";
   at?: number;
 }
 
@@ -279,9 +279,12 @@ export async function savePayout(_p: StepState, fd: FormData): Promise<StepState
 // ─── 9. Submit ──────────────────────────────────────────────────────────────
 
 export async function submitForVerification(_p: StepState, fd: FormData): Promise<StepState> {
-  const { profile } = await me();
+  const { user, profile } = await me();
   const checklist = await onboardingChecklist(profile.id);
   if (Object.values(checklist).some((v) => !v)) return fail("incomplete");
+  // Clients and admins must be able to reach a verified professional.
+  const { emailVerifiedAt } = await db.user.findUniqueOrThrow({ where: { id: user.id }, select: { emailVerifiedAt: true } });
+  if (!emailVerifiedAt) return fail("email_unverified");
   await db.psychologistProfile.update({
     where: { id: profile.id },
     // Psychologists usually want to appear in search once approved.

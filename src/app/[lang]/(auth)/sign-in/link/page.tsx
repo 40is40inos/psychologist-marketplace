@@ -7,7 +7,7 @@ import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { MagicLinkConfirm } from "@/components/auth/magic-link-forms";
 
-export const metadata: Metadata = { robots: { index: false }, referrer: "no-referrer" };
+export const metadata: Metadata = { robots: { index: false }, referrer: "same-origin" };
 
 export default async function MagicLinkPage({ params, searchParams }: PageProps<"/[lang]/sign-in/link">) {
   const { lang } = await params;

@@ -33,13 +33,20 @@ export async function GET(request: Request) {
     return fail("failed");
   }
 
-  const select = { id: true, role: true, status: true, deletedAt: true, totpEnabledAt: true, googleSub: true } as const;
+  const select = { id: true, role: true, status: true, deletedAt: true, totpEnabledAt: true, googleSub: true, emailVerifiedAt: true } as const;
   let user = (await db.user.findUnique({ where: { googleSub: identity.sub }, select })) ?? (await db.user.findUnique({ where: { email: identity.email }, select }));
 
   if (user) {
     if (user.status !== "active" || user.deletedAt) return fail("suspended");
     if (user.googleSub && user.googleSub !== identity.sub) return fail("failed");
-    if (!user.googleSub) await db.user.update({ where: { id: user.id }, data: { googleSub: identity.sub, emailVerifiedAt: new Date() } });
+    if (!user.googleSub) {
+      // Someone may have signed up with this address without owning it. If it
+      // was never verified, Google proves the real owner: drop the unproven
+      // password and sign out its sessions before linking.
+      const unproven = !user.emailVerifiedAt;
+      await db.user.update({ where: { id: user.id }, data: { googleSub: identity.sub, emailVerifiedAt: new Date(), ...(unproven && { passwordHash: "!" }) } });
+      if (unproven) await db.authSession.deleteMany({ where: { userId: user.id } });
+    }
   } else {
     // No account yet: only create one from the sign-up form, after consent.
     if (flow!.intent !== "signup" || !flow!.consented) redirect(`/${locale}/sign-up?google=noaccount`);

@@ -16,6 +16,7 @@ import { rateLimit } from "@/lib/auth/rate-limit";
 import { createSession, destroySession } from "@/lib/auth/session";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { slugify } from "@/lib/slug";
+import { sendVerificationEmail } from "@/lib/auth/account-emails";
 
 /** Error codes map to dictionary strings under auth.errors. */
 export type AuthErrorCode =
@@ -153,7 +154,7 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
         },
       }),
     },
-    select: { id: true, role: true },
+    select: { id: true, role: true, email: true, locale: true },
   });
 
   // Proof of consent (GDPR Art. 7): what was accepted, which version, when.
@@ -161,6 +162,8 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
   const kinds = role === "client" ? (["terms", "privacy", "health_data"] as const) : (["psychologist_terms", "privacy"] as const);
   await db.consentRecord.createMany({ data: kinds.map((kind) => ({ userId: user.id, kind, version: LEGAL_VERSION, userAgent })) });
 
+  // Not blocking: the account works now; the banner reminds until confirmed.
+  await sendVerificationEmail(user).catch((e) => console.error("[auth] verification email failed", e));
   await createSession(user.id);
   // Clients who signed up mid-booking go back to their booking.
   const next = user.role === "client" ? safeNextPath(formData.get("next"), locale) : null;

@@ -56,6 +56,19 @@ export async function destroyAllSessions(userId: string): Promise<void> {
   await db.authSession.deleteMany({ where: { userId } });
 }
 
+/** Sign out every other device, keeping this session (after security changes). */
+export async function destroyOtherSessions(userId: string): Promise<number> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  const { count } = await db.authSession.deleteMany({ where: { userId, ...(token && { tokenHash: { not: hashToken(token) } }) } });
+  return count;
+}
+
+/** Number of signed-in devices other than this one. */
+export async function otherSessionCount(userId: string): Promise<number> {
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
+  return db.authSession.count({ where: { userId, expiresAt: { gt: new Date() }, ...(token && { tokenHash: { not: hashToken(token) } }) } });
+}
+
 /**
  * The signed-in user, or null. Memoised per request, so layouts and pages
  * can both call it without extra queries.

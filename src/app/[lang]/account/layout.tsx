@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { TabNav } from "@/components/ui/tab-nav";
+import { VerifyEmailBanner } from "@/components/auth/verify-email-banner";
 
 /** Shell only. Every account page checks the client role itself. */
 export default async function AccountLayout({ children, params }: LayoutProps<"/[lang]/account">) {
@@ -12,6 +13,7 @@ export default async function AccountLayout({ children, params }: LayoutProps<"/
   const t = dict.account.tabs;
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+      <VerifyEmailBanner locale={lang} t={dict.accountSecurity} />
       <TabNav
         label={dict.nav.myAccount}
         links={[

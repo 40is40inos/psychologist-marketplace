@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
-import { createSession, getCurrentUser } from "@/lib/auth/session";
+import { createSession, destroyOtherSessions, getCurrentUser } from "@/lib/auth/session";
 import { rateLimit } from "@/lib/auth/rate-limit";
 import { generateRecoveryCodes, hashRecoveryCode, verifyTotp } from "@/lib/auth/totp";
 import { PENDING_COOKIE, readPending, twoFactorRequired } from "@/lib/auth/two-factor";
@@ -89,6 +89,7 @@ export async function disableTwoFactor(fd: FormData): Promise<void> {
   if (!me) redirect(`/${localeOf(fd)}/sign-in`);
   if (twoFactorRequired(me.role)) return;
   await db.user.update({ where: { id: me.id }, data: { totpEnabledAt: null, totpSecretEncrypted: null, recoveryCodeHashes: [] } });
+  await destroyOtherSessions(me.id);
   await db.auditLog.create({ data: { actorId: me.id, action: "security.2fa_disable", targetType: "User", targetId: me.id } });
   refresh();
 }

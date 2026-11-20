@@ -980,19 +980,30 @@ model ConsentRecord {
   @@index([userId, kind])
 }
 
-/// One-time sign-in links (magic links). Only a SHA-256 hash of the token is
-/// stored; links expire after 15 minutes and work once.
+/// What an emailed one-time link is for. Each purpose is spent only by its own flow.
+enum TokenPurpose {
+  sign_in
+  password_reset
+  email_verify
+  email_change
+}
+
+/// One-time links sent by email (sign-in, password reset, email checks).
+/// Only the SHA-256 hash of the token is stored.
 model LoginToken {
-  id        String    @id @default(cuid())
-  tokenHash String    @unique
+  id        String       @id @default(cuid())
+  tokenHash String       @unique
   userId    String
+  purpose   TokenPurpose @default(sign_in)
+  /// The new address, for purpose = email_change.
+  newEmail  String?
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime  @default(now())
+  createdAt DateTime     @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId])
+  @@index([userId, purpose])
 }
 
 /// Client-only details, kept apart from the login (User) so the account

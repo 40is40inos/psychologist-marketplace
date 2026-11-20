@@ -1,6 +1,5 @@
 "use server";
 
-import { createHash, randomBytes } from "node:crypto";
 import { headers } from "next/headers";
 import { z } from "zod";
 import { brand } from "@/config/brand";
@@ -12,9 +11,9 @@ import { rateLimit } from "@/lib/auth/rate-limit";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { fill } from "@/lib/format";
 import { sendEmail } from "@/lib/notifications/providers";
+import { issueToken, spendToken, TOKEN_TTL_MS } from "@/lib/auth/tokens";
 
-const TTL_MS = 15 * 60_000;
-const hash = (token: string) => createHash("sha256").update(token).digest("hex");
+const TTL_MS = TOKEN_TTL_MS.sign_in;
 
 export interface MagicLinkState {
   sent?: boolean;
@@ -41,8 +40,7 @@ export async function requestMagicLink(_prev: MagicLinkState, fd: FormData): Pro
 
   const user = await db.user.findUnique({ where: { email: parsed.data }, select: { id: true, status: true, deletedAt: true, locale: true } });
   if (user && user.status === "active" && !user.deletedAt) {
-    const token = randomBytes(32).toString("base64url");
-    await db.loginToken.create({ data: { tokenHash: hash(token), userId: user.id, expiresAt: new Date(Date.now() + TTL_MS) } });
+    const token = await issueToken(user.id, "sign_in");
     const next = safeNextPath(fd.get("next"), locale);
     const url = new URL(`/${locale}/sign-in/link`, brand.siteUrl);
     url.searchParams.set("token", token);
@@ -57,12 +55,9 @@ export async function requestMagicLink(_prev: MagicLinkState, fd: FormData): Pro
 /** Second step, from the confirmation page: spend the token and sign in. */
 export async function consumeMagicLink(_prev: MagicLinkState, fd: FormData): Promise<MagicLinkState> {
   const locale = localeOf(fd);
-  const token = String(fd.get("token") ?? "");
-  if (!token) return { error: "expired" };
-  const record = await db.loginToken.findUnique({ where: { tokenHash: hash(token) }, select: { id: true, userId: true } });
-  // Atomic: only one request can mark an unused, unexpired token as used.
-  const spent = record ? await db.loginToken.updateMany({ where: { id: record.id, usedAt: null, expiresAt: { gt: new Date() } }, data: { usedAt: new Date() } }) : { count: 0 };
-  if (!record || spent.count !== 1) return { error: "expired" };
+  // Atomic: only one request can spend an unused, unexpired sign-in link.
+  const record = await spendToken(String(fd.get("token") ?? ""), ["sign_in"]);
+  if (!record) return { error: "expired" };
 
   const user = await db.user.update({
     where: { id: record.userId },

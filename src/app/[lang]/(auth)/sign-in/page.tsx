@@ -56,13 +56,14 @@ async function Form({
 }) {
   const user = await getCurrentUser();
   if (user) redirect(`/${locale}${homePathFor(user.role)}`);
-  const { next, google } = await searchParams;
+  const { next, google, reset } = await searchParams;
   const safe = safeNextPath(Array.isArray(next) ? next[0] : next, locale) ?? undefined;
   const g = dict.googleAuth;
   const googleError = typeof google === "string" && google in g.errors ? g.errors[google as keyof typeof g.errors] : null;
   return (
     <div className="space-y-6">
       {googleError && <FormAlert>{googleError}</FormAlert>}
+      {reset === "1" && <FormAlert tone="success">{dict.accountSecurity.resetDone}</FormAlert>}
       {googleEnabled() && <GoogleSignIn locale={locale} next={safe} label={g.continue} />}
       {googleEnabled() && <p className="flex items-center gap-3 text-sm text-muted before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">{g.or}</p>}
       <SignInForm locale={locale} next={safe} t={dict.auth} />

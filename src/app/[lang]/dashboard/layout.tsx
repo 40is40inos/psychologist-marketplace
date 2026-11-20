@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { TabNav } from "@/components/ui/tab-nav";
+import { VerifyEmailBanner } from "@/components/auth/verify-email-banner";
 
 /** Psychologist workspace shell. Every page checks the psychologist role itself. */
 export default async function DashboardLayout({ children, params }: LayoutProps<"/[lang]/dashboard">) {
@@ -12,6 +13,7 @@ export default async function DashboardLayout({ children, params }: LayoutProps<
   const n = dict.workspace.nav;
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+      <VerifyEmailBanner locale={lang} t={dict.accountSecurity} />
       <TabNav
         label={dict.nav.dashboard}
         links={[

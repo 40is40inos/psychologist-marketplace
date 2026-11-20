@@ -126,6 +126,7 @@ async function Step({
     iban: t.ibanInvalid,
     taxId: t.taxIdInvalid,
     incomplete: t.cannotSubmit,
+    email_unverified: dict.accountSecurity.verifyBeforeSubmit,
     ...t.uploadErrors,
   };
   const common = { locale, errors, backHref: back, backLabel: t.back, submitLabel: t.next };

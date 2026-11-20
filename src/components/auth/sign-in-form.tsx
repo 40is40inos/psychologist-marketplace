@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { signIn, type AuthFormState } from "@/actions/auth";
 import type { Locale } from "@/i18n/config";
@@ -48,6 +49,9 @@ export function SignInForm({
           className={inputClass}
         />
       </Field>
+      <p className="-mt-2 text-right text-sm">
+        <Link href={`/${locale}/sign-in/forgot`} className="font-medium text-primary hover:underline">{t.forgotPassword}</Link>
+      </p>
       <SubmitButton className="w-full">{t.submitSignIn}</SubmitButton>
     </form>
   );

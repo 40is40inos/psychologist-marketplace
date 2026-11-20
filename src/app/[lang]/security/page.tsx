@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { ShieldCheck } from "lucide-react";
 import { disableTwoFactor } from "@/actions/two-factor";
+import { signOutOtherDevices } from "@/actions/account-security";
+import { ChangeEmailForm, ChangePasswordForm, ResendVerificationForm } from "@/components/auth/account-forms";
 import { brand } from "@/config/brand";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
-import { requireUser } from "@/lib/auth/session";
+import { otherSessionCount, requireUser } from "@/lib/auth/session";
 import { generateSecret, otpauthUri } from "@/lib/auth/totp";
 import { twoFactorRequired } from "@/lib/auth/two-factor";
 import { decrypt, encrypt } from "@/lib/crypto";
@@ -38,7 +40,13 @@ async function Security({ locale, dict, searchParams }: { locale: Locale; dict: 
   const me = await requireUser(locale, `/${locale}/security`);
   const t = dict.twoFactor;
   const sp = await searchParams;
-  const user = await db.user.findUniqueOrThrow({ where: { id: me.id }, select: { email: true, totpSecretEncrypted: true, totpEnabledAt: true } });
+  const s = dict.accountSecurity;
+  const [user, otherDevices] = await Promise.all([
+    db.user.findUniqueOrThrow({ where: { id: me.id }, select: { email: true, emailVerifiedAt: true, passwordHash: true, totpSecretEncrypted: true, totpEnabledAt: true } }),
+    otherSessionCount(me.id),
+  ]);
+  const hasPassword = user.passwordHash !== "!";
+  const section = "space-y-4 rounded-2xl border border-border bg-surface p-5";
 
   let setup: { qr: string; secret: string } | null = null;
   if (!user.totpEnabledAt) {
@@ -56,9 +64,39 @@ async function Security({ locale, dict, searchParams }: { locale: Locale; dict: 
     <div className="space-y-6">
       <h1 className="flex items-center gap-2 font-display text-3xl font-semibold tracking-tight text-ink">
         <ShieldCheck className="size-7 text-primary" aria-hidden="true" />
-        {t.title}
+        {s.pageTitle}
       </h1>
       {sp.required && !user.totpEnabledAt && <FormAlert>{t.required}</FormAlert>}
+
+      <section aria-labelledby="email-h" className={section}>
+        <h2 id="email-h" className="font-semibold text-ink">{s.emailTitle}</h2>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-ink">
+          <span className="break-all font-medium">{user.email}</span>
+          {user.emailVerifiedAt ? (
+            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">{s.verified}</span>
+          ) : (
+            <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">{s.unverified}</span>
+          )}
+        </p>
+        {!user.emailVerifiedAt && (
+          <p className="text-sm text-muted">{s.verifyHint} <ResendVerificationForm locale={locale} t={s} /></p>
+        )}
+        <details className="group">
+          <summary className="cursor-pointer text-sm font-semibold text-primary">{s.changeEmail}</summary>
+          <div className="mt-4 space-y-3">
+            <p className="text-sm text-muted">{s.changeEmailHint}</p>
+            <ChangeEmailForm locale={locale} hasPassword={hasPassword} t={s} />
+          </div>
+        </details>
+      </section>
+
+      <section aria-labelledby="password-h" className={section}>
+        <h2 id="password-h" className="font-semibold text-ink">{s.passwordTitle}</h2>
+        <p className="text-sm text-muted">{hasPassword ? s.passwordIntro : s.noPasswordIntro}</p>
+        <ChangePasswordForm locale={locale} hasPassword={hasPassword} t={s} />
+      </section>
+
+      <h2 className="pt-2 font-display text-2xl font-semibold text-ink">{t.title}</h2>
       <p className="text-ink">{t.intro}</p>
 
       {setup ? (
@@ -89,6 +127,17 @@ async function Security({ locale, dict, searchParams }: { locale: Locale; dict: 
           )}
         </div>
       )}
+
+      <section aria-labelledby="devices-h" className={section}>
+        <h2 id="devices-h" className="font-semibold text-ink">{s.devicesTitle}</h2>
+        <p className="text-sm text-muted">{otherDevices === 0 ? s.devicesNone : fill(s.devicesOther, { count: otherDevices })}</p>
+        {otherDevices > 0 && (
+          <form action={signOutOtherDevices}>
+            <input type="hidden" name="locale" value={locale} />
+            <SubmitButton variant="secondary">{s.signOutOthers}</SubmitButton>
+          </form>
+        )}
+      </section>
 
       {me.role !== "client" && (
         <section className="space-y-4 border-t border-border pt-8">
