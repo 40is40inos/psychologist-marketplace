@@ -6,7 +6,9 @@ import { z } from "zod";
 import { db } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { assertPermission } from "@/lib/auth/session";
-import { storeUpload, removeStored, type StoreError } from "@/lib/storage";
+import { storeUpload, removeStored, verifyUploaded, type StoreError } from "@/lib/storage";
+import { readValue } from "@/lib/auth/signed-value";
+import { DOCUMENT_TYPES, PHOTO_TYPES, type UploadKind, type UploadTicket } from "@/domain/uploads";
 import { isValidAfm, isValidIban, normalizeIban } from "@/lib/validators";
 import { onboardingChecklist, ONBOARDING_STEPS, type OnboardingStep } from "@/lib/onboarding";
 import { PROFESSIONAL_TITLES } from "@/domain/professional-titles";
@@ -40,6 +42,27 @@ async function advance(fd: FormData, profileId: string, slug: string, step: Onbo
 
 const fail = (error: StepState["error"]): StepState => ({ error, at: Date.now() });
 
+type Taken = { key: string; mimeType: string; size: number; filename: string } | { error: StoreError } | null;
+
+/**
+ * The file for one upload field: either a ticket for an object the browser
+ * already put in the bucket (production), or the file itself (development).
+ * Returns null when nothing was chosen.
+ */
+async function takeUpload(fd: FormData, field: string, kind: UploadKind, profileId: string, folder: string, accept: string[]): Promise<Taken> {
+  const rawTicket = fd.get(`${field}Ticket`);
+  if (typeof rawTicket === "string" && rawTicket) {
+    const ticket = readValue<UploadTicket>("upload", rawTicket);
+    if (!ticket || ticket.profileId !== profileId || ticket.kind !== kind) return { error: "empty" };
+    const checked = await verifyUploaded(ticket.key, accept);
+    return "error" in checked ? checked : { key: ticket.key, filename: ticket.filename, ...checked };
+  }
+  const file = fd.get(field);
+  if (!(file instanceof File) || file.size === 0) return null;
+  const stored = await storeUpload(file, `${folder}/${profileId}`, accept);
+  return "error" in stored ? stored : { ...stored, filename: file.name.slice(0, 200) };
+}
+
 // ─── 1. Personal ────────────────────────────────────────────────────────────
 
 const personalSchema = z.object({
@@ -66,8 +89,6 @@ export async function savePersonal(_p: StepState, fd: FormData): Promise<StepSta
 
 // ─── 2. License ─────────────────────────────────────────────────────────────
 
-const DOC_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
-
 export async function saveLicense(_p: StepState, fd: FormData): Promise<StepState> {
   const { profile } = await me();
   const parsed = z
@@ -76,14 +97,13 @@ export async function saveLicense(_p: StepState, fd: FormData): Promise<StepStat
   if (!parsed.success) return fail("invalid");
 
   for (const kind of ["license", "identity"] as const) {
-    const file = fd.get(`${kind}File`);
-    if (!(file instanceof File) || file.size === 0) continue;
-    const stored = await storeUpload(file, `documents/${profile.id}`, DOC_TYPES);
+    const stored = await takeUpload(fd, `${kind}File`, kind, profile.id, "documents", DOCUMENT_TYPES);
+    if (!stored) continue;
     if ("error" in stored) return fail(stored.error);
     // One current document per kind: replace the previous one.
     const old = await db.document.findMany({ where: { psychologistId: profile.id, kind } });
     await db.document.create({
-      data: { psychologistId: profile.id, kind, filename: file.name.slice(0, 200), mimeType: stored.mimeType, sizeBytes: stored.size, storageKey: stored.key },
+      data: { psychologistId: profile.id, kind, filename: stored.filename, mimeType: stored.mimeType, sizeBytes: stored.size, storageKey: stored.key },
     });
     for (const o of old) {
       await db.document.delete({ where: { id: o.id } });
@@ -153,14 +173,13 @@ export async function saveProfileMedia(_p: StepState, fd: FormData): Promise<Ste
   }));
   if (!texts.some((t) => t.headline && t.bio)) return fail("invalid");
 
-  const photo = fd.get("photoFile");
   let photoUrl: string | undefined;
-  if (photo instanceof File && photo.size > 0) {
-    const stored = await storeUpload(photo, `photos/${profile.id}`, ["image/jpeg", "image/png", "image/webp"]);
-    if ("error" in stored) return fail(stored.error);
+  const stored = await takeUpload(fd, "photoFile", "photo", profile.id, "photos", PHOTO_TYPES);
+  if (stored && "error" in stored) return fail(stored.error);
+  if (stored) {
     const old = await db.document.findMany({ where: { psychologistId: profile.id, kind: "photo" } });
     const doc = await db.document.create({
-      data: { psychologistId: profile.id, kind: "photo", filename: photo.name.slice(0, 200), mimeType: stored.mimeType, sizeBytes: stored.size, storageKey: stored.key },
+      data: { psychologistId: profile.id, kind: "photo", filename: stored.filename, mimeType: stored.mimeType, sizeBytes: stored.size, storageKey: stored.key },
     });
     photoUrl = `/api/photos/${doc.id}`;
     for (const o of old) {

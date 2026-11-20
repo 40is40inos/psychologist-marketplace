@@ -14,14 +14,23 @@ const tileHost = (() => {
  * must serve HTTPS); the CSP limits scripts, frames and connections to what
  * the app actually uses.
  */
+// Bucket for uploads and signed downloads (see src/lib/storage.ts).
+const storageHost = (() => {
+  try {
+    return process.env.S3_BUCKET && process.env.S3_ENDPOINT ? ` ${new URL(process.env.S3_ENDPOINT).origin}` : "";
+  } catch {
+    return "";
+  }
+})();
+
 const csp = [
   "default-src 'self'",
   // Next.js inlines small bootstrap scripts; dev mode also needs eval.
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: blob: ${tileHost}`,
+  `img-src 'self' data: blob: ${tileHost}${storageHost}`,
   "font-src 'self' data:",
-  `connect-src 'self'${isDev ? " ws: wss:" : ""}`,
+  `connect-src 'self'${storageHost}${isDev ? " ws: wss:" : ""}`,
   "media-src 'self' blob: mediastream:",
   "frame-src https://www.youtube-nocookie.com https://player.vimeo.com https://*.daily.co",
   "frame-ancestors 'none'",
@@ -50,7 +59,8 @@ const nextConfig: NextConfig = {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
   experimental: {
-    // Onboarding uploads two documents of up to 10 MB each.
+    // Local storage only: onboarding sends two documents of up to 10 MB each
+    // with the form. With bucket storage, files go straight to the bucket.
     serverActions: { bodySizeLimit: "21mb" },
     proxyClientMaxBodySize: "21mb",
     // Prerendering reads the database. BUILD_CPUS=1 avoids overloading the

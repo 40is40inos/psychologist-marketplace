@@ -37,7 +37,7 @@ export async function requestMagicLink(_prev: MagicLinkState, fd: FormData): Pro
   if (!parsed.success) return { error: "invalid" };
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
-  if (!rateLimit(`magic:${ip}`, 5, 15 * 60_000) || !rateLimit(`magic:${parsed.data}`, 3, 15 * 60_000)) return { error: "rate_limited" };
+  if (!(await rateLimit(`magic:${ip}`, 5, 15 * 60_000)) || !(await rateLimit(`magic:${parsed.data}`, 3, 15 * 60_000))) return { error: "rate_limited" };
 
   const user = await db.user.findUnique({ where: { email: parsed.data }, select: { id: true, status: true, deletedAt: true, locale: true } });
   if (user && user.status === "active" && !user.deletedAt) {

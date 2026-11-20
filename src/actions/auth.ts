@@ -73,7 +73,7 @@ export async function signIn(_prev: AuthFormState, formData: FormData): Promise<
   if (!parsed.success) return { error: "invalid_credentials", values };
 
   const { email: address, password } = parsed.data;
-  if (!rateLimit(`signin:${await clientIp()}:${address}`, 8, 15 * 60_000)) {
+  if (!(await rateLimit(`signin:${await clientIp()}:${address}`, 8, 15 * 60_000))) {
     return { error: "rate_limited", values };
   }
 
@@ -123,7 +123,7 @@ export async function signUp(_prev: AuthFormState, formData: FormData): Promise<
     return { error: "invalid_input", fieldErrors, values };
   }
 
-  if (!rateLimit(`signup:${await clientIp()}`, 5, 60 * 60_000)) {
+  if (!(await rateLimit(`signup:${await clientIp()}`, 5, 60 * 60_000))) {
     return { error: "rate_limited", values };
   }
 

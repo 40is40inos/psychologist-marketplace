@@ -73,7 +73,7 @@ export async function sendMessage(_prev: SimpleState, fd: FormData): Promise<Sim
   const user = await requireUser(fd);
   const parsed = messageSchema.safeParse(Object.fromEntries(fd));
   if (!parsed.success) return { error: "invalid", at: Date.now() };
-  if (!rateLimit(`msg:${user.id}`, 30, 60_000)) return { error: "rate_limited", at: Date.now() };
+  if (!(await rateLimit(`msg:${user.id}`, 30, 60_000))) return { error: "rate_limited", at: Date.now() };
 
   const c = await db.conversation.findUnique({
     where: { id: parsed.data.conversationId },

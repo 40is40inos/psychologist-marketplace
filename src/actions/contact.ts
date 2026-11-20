@@ -32,7 +32,7 @@ export async function sendContact(_prev: ContactState, fd: FormData): Promise<Co
 
   const h = await headers();
   const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "local";
-  if (!rateLimit(`contact:${ip}`, 5, 60 * 60_000)) return { error: "rate_limited", at: Date.now() };
+  if (!(await rateLimit(`contact:${ip}`, 5, 60 * 60_000))) return { error: "rate_limited", at: Date.now() };
 
   const d = parsed.data;
   await sendEmail({

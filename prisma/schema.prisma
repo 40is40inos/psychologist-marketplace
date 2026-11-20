@@ -1047,3 +1047,14 @@ model LicenseVerification {
 
   @@index([psychologistId, decidedAt])
 }
+
+/// Fixed-window counters for rate limits (sign-in, sign-up, magic links,
+/// contact form, uploads). Shared by every server instance; expired rows are
+/// removed by the retention job.
+model RateLimit {
+  key     String   @id
+  count   Int
+  resetAt DateTime
+
+  @@index([resetAt])
+}

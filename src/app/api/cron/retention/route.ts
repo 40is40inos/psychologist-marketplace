@@ -25,16 +25,17 @@ export async function POST(request: Request) {
   // Stripe also sends checkout.session.expired; whichever comes first wins.
   for (const p of expired) await releaseHold(p.appointmentId);
 
-  const [sessions, signals, searches, notifications] = await db.$transaction([
+  const [sessions, signals, searches, notifications, rateLimits] = await db.$transaction([
     db.authSession.deleteMany({ where: { expiresAt: { lt: new Date(now) } } }),
     db.videoSignal.deleteMany({ where: { createdAt: { lt: new Date(now - DAY) } } }),
     db.searchLog.deleteMany({ where: { createdAt: { lt: new Date(now - 395 * DAY) } } }),
     db.notification.deleteMany({ where: { status: { in: ["sent", "skipped", "failed"] }, createdAt: { lt: new Date(now - 365 * DAY) } } }),
+    db.rateLimit.deleteMany({ where: { resetAt: { lt: new Date(now) } } }),
   ]);
 
   return Response.json({
     releasedHolds: expired.length,
-    deleted: { sessions: sessions.count, videoSignals: signals.count, searchLogs: searches.count, notifications: notifications.count },
+    deleted: { sessions: sessions.count, videoSignals: signals.count, searchLogs: searches.count, notifications: notifications.count, rateLimits: rateLimits.count },
   });
 }
 

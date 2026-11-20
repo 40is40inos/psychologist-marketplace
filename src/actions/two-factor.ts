@@ -34,7 +34,7 @@ export async function verifySignIn(_p: TwoFactorState, fd: FormData): Promise<Tw
   const userId = readPending(store.get(PENDING_COOKIE)?.value);
   if (!userId) return fail("expired");
   const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (!rateLimit(`2fa:${userId}:${ip}`, 6, 10 * 60_000)) return fail("tooMany");
+  if (!(await rateLimit(`2fa:${userId}:${ip}`, 6, 10 * 60_000))) return fail("tooMany");
 
   const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, role: true, status: true, totpSecretEncrypted: true, totpEnabledAt: true, recoveryCodeHashes: true } });
   if (!user || user.status !== "active" || !user.totpEnabledAt || !user.totpSecretEncrypted) return fail("expired");
@@ -63,7 +63,7 @@ export async function verifySignIn(_p: TwoFactorState, fd: FormData): Promise<Tw
 export async function enableTwoFactor(_p: TwoFactorState, fd: FormData): Promise<TwoFactorState> {
   const me = await getCurrentUser();
   if (!me) redirect(`/${localeOf(fd)}/sign-in`);
-  if (!rateLimit(`2fa-setup:${me.id}`, 10, 10 * 60_000)) return fail("tooMany");
+  if (!(await rateLimit(`2fa-setup:${me.id}`, 10, 10 * 60_000))) return fail("tooMany");
   const user = await db.user.findUniqueOrThrow({ where: { id: me.id }, select: { totpSecretEncrypted: true, totpEnabledAt: true } });
   if (user.totpEnabledAt || !user.totpSecretEncrypted) return fail("expired");
   if (!verifyTotp(decrypt(user.totpSecretEncrypted), String(fd.get("code") ?? ""))) return fail("invalid");

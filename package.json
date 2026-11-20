@@ -10,11 +10,17 @@
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test": "vitest run",
+    "db:deploy": "prisma migrate deploy",
+    "vercel-build": "prisma migrate deploy && next build",
+    "db:setup": "tsx prisma/setup.ts",
+    "db:create-admin": "tsx prisma/create-admin.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "aws4fetch": "^1.0.20",
     "jose": "^6.2.18",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.76.0",
@@ -42,6 +48,7 @@
     "prisma": "^7.10.1",
     "tailwindcss": "4.3.3",
     "tsx": "^4.23.15",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }

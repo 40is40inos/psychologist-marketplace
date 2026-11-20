@@ -29,6 +29,8 @@ import { Avatar } from "@/components/avatar";
 import { Field, inputClass, textareaClass, buttonClass } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { UploadField } from "@/components/onboarding/upload-field";
+import { directUploads } from "@/lib/storage";
 
 export const metadata: Metadata = { robots: { index: false } };
 
@@ -181,7 +183,7 @@ async function Step({
                       {t.uploaded}: <a href={`/api/documents/${current.id}`} target="_blank" className="font-medium text-primary underline" rel="noreferrer">{current.filename}</a>
                     </p>
                   )}
-                  <input id={`${kind}File`} name={`${kind}File`} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm text-ink file:mr-3 file:h-10 file:rounded-lg file:border-0 file:bg-primary-soft file:px-4 file:font-medium file:text-primary" aria-describedby={`${kind}File-hint`} />
+                  <UploadField id={`${kind}File`} kind={kind} direct={directUploads} accept="application/pdf,image/jpeg,image/png,image/webp" describedBy={`${kind}File-hint`} t={t.upload} />
                 </Field>
               );
             })}
@@ -248,7 +250,7 @@ async function Step({
               <ul className="mb-3 list-disc space-y-0.5 pl-5 text-sm text-muted">
                 {t.photoTips.map((tip) => <li key={tip}>{tip}</li>)}
               </ul>
-              <input id="photoFile" name="photoFile" type="file" accept="image/jpeg,image/png,image/webp" className="block w-full text-sm text-ink file:mr-3 file:h-10 file:rounded-lg file:border-0 file:bg-primary-soft file:px-4 file:font-medium file:text-primary" />
+              <UploadField id="photoFile" kind="photo" direct={directUploads} accept="image/jpeg,image/png,image/webp" t={t.upload} />
             </Field>
           </div>
           <Field id="videoUrl" label={t.videoUrl} hint={t.videoHint}><input id="videoUrl" name="videoUrl" type="url" defaultValue={p.videoUrl ?? ""} className={inputClass} /></Field>
