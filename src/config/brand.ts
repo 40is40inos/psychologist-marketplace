@@ -5,7 +5,16 @@
  */
 export const brand = {
   name: process.env.NEXT_PUBLIC_BRAND_NAME ?? "BRAND NAME",
-  siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  /**
+   * Public address, used in emails, sitemaps and sign-in redirects. On Vercel
+   * it falls back to the project's production domain (*.vercel.app or your
+   * own), so a first deploy works without setting it.
+   */
+  siteUrl:
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    (process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "http://localhost:3000"),
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@example.com",
   /**
    * Name shown on card statements once card payments are enabled. Keep it

@@ -13,10 +13,19 @@ deploys production; every other branch and pull request gets a preview URL.
    `prisma migrate deploy && next build`. Migrations are applied to the
    environment's own database before the new code goes live. If the build
    fails, the previous version keeps running.
-3. Cron jobs in `vercel.json` call `/api/cron/*`. Vercel sends
-   `Authorization: Bearer $CRON_SECRET` automatically when `CRON_SECRET` is
-   set. The 5- and 15-minute schedules need a **Pro** plan (Hobby allows
-   daily jobs only).
+3. Scheduled jobs call `/api/cron/*` with `Authorization: Bearer $CRON_SECRET`:
+
+   | Job | Needed every | Runs from |
+   |---|---|---|
+   | `/api/cron/notifications` (reminders, queued emails) | 5 minutes | external scheduler (cron-job.org) |
+   | `/api/cron/calendars` (calendar sync) | 15 minutes | external scheduler (cron-job.org) |
+   | `/api/cron/retention` (cleanup, expired checkouts) | daily | `vercel.json` |
+
+   Vercel's free Hobby plan rejects any deploy whose crons run more than
+   once a day, so only the daily job lives in `vercel.json`. On **Pro** you
+   can move the other two into `vercel.json` (`*/5 * * * *` and
+   `*/15 * * * *`) and drop the external scheduler. See
+   [deploy-free.md](deploy-free.md).
 
 Rollback: Vercel dashboard → Deployments → a previous deployment →
 **Promote to Production**. Code rolls back instantly; the database does not,
