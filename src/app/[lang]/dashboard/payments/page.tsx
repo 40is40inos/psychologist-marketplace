@@ -106,7 +106,7 @@ async function Payments({ locale, dict }: { locale: Locale; dict: Dictionary }) 
         {invoices.length === 0 ? (
           <EmptyState title={t.noInvoices} />
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+          <div className="relative overflow-x-auto rounded-2xl border border-border bg-surface">
             <table className="w-full min-w-[36rem] text-sm">
               <thead className="border-b border-border text-left text-muted">
                 <tr>

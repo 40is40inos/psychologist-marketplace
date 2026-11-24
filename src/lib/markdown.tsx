@@ -76,7 +76,7 @@ export function Markdown({ source }: { source: string }) {
           const cells = (l: string) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim());
           const [head, , ...rows] = lines;
           return (
-            <div key={key} className="overflow-x-auto rounded-xl border border-border">
+            <div key={key} className="relative overflow-x-auto rounded-xl border border-border">
               <table className="w-full text-left text-base">
                 <thead className="bg-surface-muted">
                   <tr>{cells(head).map((c, i) => <th key={i} scope="col" className="px-3 py-2 font-semibold">{inline(c, `${key}-h${i}`)}</th>)}</tr>

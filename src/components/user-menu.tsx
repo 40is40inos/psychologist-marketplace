@@ -14,9 +14,11 @@ export async function UserMenu({ locale, dict }: { locale: Locale; dict: Diction
     return (
       <Link
         href={`/${locale}/sign-in`}
-        className="inline-flex h-10 items-center whitespace-nowrap rounded-lg px-2 text-sm font-semibold text-primary hover:bg-primary-soft sm:px-3"
+        className="inline-flex h-10 min-w-10 items-center justify-center whitespace-nowrap rounded-lg px-2 text-sm font-semibold text-primary hover:bg-primary-soft sm:px-3"
       >
-        {dict.nav.signIn}
+        {/* Icon on small phones so the brand name has room; text from 400px up. */}
+        <UserRound className="size-5 min-[400px]:hidden" aria-hidden="true" />
+        <span className="sr-only min-[400px]:not-sr-only">{dict.nav.signIn}</span>
       </Link>
     );
   }

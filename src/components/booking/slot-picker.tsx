@@ -75,7 +75,7 @@ export function SlotPicker({
           <legend className="mb-2 text-sm font-semibold text-ink">{labels.chooseType}</legend>
           <div className="grid gap-2 sm:grid-cols-2">
             {options.map((o) => (
-              <label key={o.key} className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border bg-surface p-3 has-[:checked]:border-primary has-[:checked]:bg-primary-soft/50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/30">
+              <label key={o.key} className="flex cursor-pointer flex-col justify-center gap-0.5 rounded-xl border border-border bg-surface px-3 py-2.5 has-[:checked]:border-primary has-[:checked]:bg-primary-soft/50 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-primary/30">
                 <input
                   type="radio"
                   name="slot-format"
@@ -88,8 +88,8 @@ export function SlotPicker({
                     setPicked(null);
                   }}
                 />
-                <span className="font-medium text-ink">{o.label}</span>
-                <span className="text-sm tabular-nums text-muted">{o.sub}</span>
+                <span className="font-medium leading-snug text-ink">{o.label}</span>
+                <span className="whitespace-nowrap text-sm tabular-nums text-muted">{o.sub}</span>
               </label>
             ))}
           </div>
@@ -113,7 +113,7 @@ export function SlotPicker({
           <p className="rounded-xl bg-surface-muted p-4 text-sm text-muted">{labels.noSlots}</p>
         ) : (
           <>
-            <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="listbox" aria-label={labels.chooseSlot}>
+            <div className="relative -mx-1 flex gap-2 overflow-x-auto px-1 pb-1" role="listbox" aria-label={labels.chooseSlot}>
               {visible.map(([k, slots]) => {
                 const selected = activeDay?.[0] === k;
                 return (

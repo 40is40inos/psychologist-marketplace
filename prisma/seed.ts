@@ -11,6 +11,8 @@
  */
 import "dotenv/config";
 import { createCipheriv, randomBytes, scrypt } from "node:crypto";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../src/generated/prisma/client";
 import { psychologists, toMinutes } from "./seed-data";
@@ -41,6 +43,33 @@ function encrypt(plain: string): string {
   const c = createCipheriv("aes-256-gcm", key, iv);
   const data = Buffer.concat([c.update(plain, "utf8"), c.final()]);
   return ["v1", iv.toString("base64url"), c.getAuthTag().toString("base64url"), data.toString("base64url")].join(".");
+}
+
+/**
+ * A one-page PDF with a few lines of text, clearly marked as a sample, so the
+ * admin's license review has documents to open. Plain ASCII on purpose
+ * (standard PDF fonts have no Greek glyphs).
+ */
+function samplePdf(lines: string[]): Buffer {
+  const esc = (t: string) => t.replace(/[\\()]/g, (c) => `\\${c}`);
+  const text = lines.map((l, i) => `BT /F1 ${i === 0 ? 20 : 12} Tf 72 ${740 - i * 28} Td (${esc(l)}) Tj ET`).join("\n");
+  const objects = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+    `<< /Length ${Buffer.byteLength(text)} >>\nstream\n${text}\nendstream`,
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+  ];
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objects.forEach((o, i) => {
+    offsets.push(Buffer.byteLength(out));
+    out += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(out);
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((n) => `${String(n).padStart(10, "0")} 00000 n \n`).join("")}`;
+  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return Buffer.from(out, "latin1");
 }
 
 async function main() {
@@ -135,13 +164,38 @@ async function main() {
     { email: "applicant1@example.test", name: "Κατερίνα Λαμπρίδου", license: "GR-48211", authority: "Περιφέρεια Κεντρικής Μακεδονίας" },
     { email: "applicant2@example.test", name: "Petros Antoniou", license: "GR-50973", authority: "Περιφέρεια Κρήτης" },
   ];
+  // Local disk only (development and the public demo); bucket storage is never seeded.
+  const storageRoot = path.resolve(process.env.STORAGE_DIR || "storage");
   for (const a of applicants) {
     const u = await user(a.email, a.name, "psychologist");
-    await db.psychologistProfile.upsert({
+    const profile = await db.psychologistProfile.upsert({
       where: { userId: u.id },
       create: { userId: u.id, slug: a.email.split("@")[0], countryCode: "GR", title: "psychologist", licenseNumber: a.license, licensingAuthority: a.authority, sessionLanguages: ["el"] },
       update: {},
     });
+    if (process.env.S3_BUCKET) continue;
+    for (const kind of ["license", "identity"] as const) {
+      const doc =
+        (await db.document.findFirst({ where: { psychologistId: profile.id, kind } })) ??
+        (await db.document.create({
+          data: {
+            psychologistId: profile.id, kind, mimeType: "application/pdf", sizeBytes: 0,
+            filename: kind === "license" ? `license-${a.license}.pdf` : "id-card.pdf",
+            storageKey: `documents/${profile.id}/${randomBytes(16).toString("hex")}.pdf`,
+          },
+        }));
+      const file = path.join(storageRoot, doc.storageKey);
+      if (existsSync(file)) continue;
+      const pdf = samplePdf([
+        "SAMPLE - fictional document",
+        kind === "license" ? "License to practise psychology" : "Identity document",
+        `License number: ${a.license}`,
+        "Created for the demo. Not a real person or license.",
+      ]);
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(file, pdf, { mode: 0o600 });
+      await db.document.update({ where: { id: doc.id }, data: { sizeBytes: pdf.length } });
+    }
   }
 
   // ── Client history (first run only) ──

@@ -37,9 +37,10 @@ function Switcher({ current, label, pathname }: { current: Locale; label: string
             hrefLang={locale}
             lang={locale}
             aria-current={active ? "true" : undefined}
+            // On phones only the language you can switch to is shown, to leave room for the brand.
             className={`rounded-md px-1.5 py-1.5 sm:px-2 font-medium uppercase transition-colors ${
               active
-                ? "bg-primary-soft text-primary"
+                ? "hidden bg-primary-soft text-primary sm:inline"
                 : "text-muted hover:text-ink"
             }`}
           >

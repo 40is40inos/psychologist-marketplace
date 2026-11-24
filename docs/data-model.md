@@ -9,10 +9,10 @@ encrypted at rest with AES-256-GCM (`src/lib/crypto.ts`).
 
 | Entity (brief) | Model(s) | Notes |
 |---|---|---|
-| User | `User`, `AuthSession`, `LoginToken` | Login identity only: email, password hash (scrypt) or Google id, role, status, 2FA. `LoginToken` holds hashed magic-link tokens |
+| User | `User`, `AuthSession`, `LoginToken` | Login identity only: email, password hash (scrypt) or Google id, role, status, 2FA. `LoginToken` holds hashed one-time email links, each bound to a purpose (`sign_in`, `password_reset`, `email_verify`, `email_change`) |
 | ClientProfile | `ClientProfile` | 1:1 with a client `User`: preferred language and format, saved matching answers (**encrypted**). Optional by design |
 | PsychologistProfile | `PsychologistProfile`, `PsychologistProfileTranslation`, `PsychologistEducation`, `PsychologistFaq`, `SessionOffering` | Public profile, per-language text, prices per format, policies, Stripe Connect account |
-| License / Verification | `PsychologistProfile` (current licence and status), `LicenseVerification` (history), `Document` (uploaded licence and ID) | Every admin decision is stored with the licence as it was checked |
+| License / Verification | `PsychologistProfile` (current license and status), `LicenseVerification` (history), `Document` (uploaded license and ID) | Every admin decision is stored with the license as it was checked |
 | Specialty | `Specialty` (`kind = concern`) and `PsychologistSpecialty` | Admin-editable labels per language |
 | Approach | `Specialty` (`kind = approach`) | Same table as concerns and client types: one taxonomy, one editor |
 | Language | `Language` | Session languages (codes), admin-editable |
@@ -34,7 +34,8 @@ encrypted at rest with AES-256-GCM (`src/lib/crypto.ts`).
 Supporting models: `ConsentRecord` (GDPR proof of consent), `Notification`,
 `Dispute`, `SavedPsychologist`, `ExternalCalendar` / `ExternalBusy`
 (calendar sync), `VideoRoom` / `VideoSignal`, `ProfileStat` (analytics),
-`SearchLog` (searches with no results, anonymous).
+`SearchLog` (searches with no results, anonymous), `RateLimit` (shared rate-limit
+counters, keys stored as SHA-256 hashes).
 
 ## Core relationships
 
@@ -77,4 +78,4 @@ erDiagram
 | Messages | `Message.bodyEncrypted` | AES-256-GCM; deleted with the account |
 | Saved matching answers | `ClientProfile.matchAnswersEncrypted` | AES-256-GCM; never put in URLs |
 | Tax ID, IBAN, myDATA keys, TOTP secrets | `PsychologistProfile`, `User` | AES-256-GCM |
-| Passwords, magic-link tokens, recovery codes | `User`, `LoginToken` | Hashes only (scrypt, SHA-256) |
+| Passwords, one-time email links, recovery codes, rate-limit keys | `User`, `LoginToken`, `RateLimit` | Hashes only (scrypt, SHA-256) |

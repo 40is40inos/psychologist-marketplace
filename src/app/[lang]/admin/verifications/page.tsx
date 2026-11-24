@@ -61,7 +61,7 @@ async function Queue({ locale, dict }: { locale: Locale; dict: Dictionary }) {
                   licenseNumber: p.licenseNumber,
                   licensingAuthority: p.licensingAuthority,
                   submitted: fill(t.submitted, { date: formatShortDate(p.submittedAt ?? p.createdAt, locale) }),
-                  documents: p.documents.map((d) => ({ id: d.id, label: `${d.kind === "license" ? t.license : d.kind} · ${d.filename}` })),
+                  documents: p.documents.map((d) => ({ id: d.id, label: `${t.docKinds[d.kind as keyof typeof t.docKinds] ?? d.kind} · ${d.filename}` })),
                   history: p.licenseHistory.map((h) =>
                     fill(t.historyLine, { date: formatShortDate(h.decidedAt, locale), decision: t.decisions[h.decision], number: h.licenseNumber }) + (h.note ? ` (${h.note})` : ""),
                   ),

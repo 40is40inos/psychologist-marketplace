@@ -158,7 +158,7 @@ The daily cleanup job runs from Vercel itself (`vercel.json`).
 
 - `https://<project>.vercel.app/api/health` returns `{"ok":true}`.
 - Search, profiles and the booking form load in Greek and English.
-- As a psychologist, upload a licence in onboarding. This checks R2 and CORS:
+- As a psychologist, upload a license in onboarding. This checks R2 and CORS:
   the file should show as uploaded, and open from the review page.
 
 ## Optional free add-ons

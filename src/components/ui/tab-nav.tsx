@@ -22,7 +22,7 @@ function ActiveTabs(props: Props) {
 
 function Tabs({ links, label, pathname }: Props & { pathname: string }) {
   return (
-    <nav aria-label={label} className="print:hidden -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+    <nav aria-label={label} className="print:hidden relative -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
       <ul className="flex gap-1 border-b border-border">
         {links.map((link, i) => {
           const active = i === 0 ? pathname === link.href || (!links.slice(1).some((l) => pathname.startsWith(l.href)) && pathname.startsWith(link.href)) : pathname.startsWith(link.href);

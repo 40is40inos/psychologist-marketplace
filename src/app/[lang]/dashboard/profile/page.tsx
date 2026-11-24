@@ -61,7 +61,7 @@ async function Wizard({ params, searchParams }: PageProps<"/[lang]/dashboard/pro
       <nav aria-label={t.title} className="lg:sticky lg:top-20 lg:self-start">
         <h1 className="font-display text-2xl font-semibold text-ink">{t.title}</h1>
         <p className="mt-1 text-sm text-muted">{t.intro}</p>
-        <ol className="mt-5 flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
+        <ol className="relative mt-5 flex gap-1 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
           {ONBOARDING_STEPS.map((s, i) => {
             const done = s !== "review" && checklist[s];
             return (

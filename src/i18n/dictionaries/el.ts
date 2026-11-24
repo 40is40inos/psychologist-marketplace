@@ -288,6 +288,7 @@ const el: Dictionary = {
       historyLine: "{date}: {decision}, άδεια {number}",
       decisions: { pending: "Σε αναμονή", verified: "Εγκρίθηκε", rejected: "Απορρίφθηκε", suspended: "Σε αναστολή" },
       license: "Άδεια",
+      docKinds: { license: "Άδεια", identity: "Ταυτότητα", degree: "Πτυχίο" },
       authority: "Αρχή",
       submitted: "Αίτηση {date}",
       approve: "Έγκριση",

@@ -51,7 +51,7 @@ async function Audit({ locale, dict, searchParams }: { locale: Locale; dict: Dic
       {entries.length === 0 ? (
         <EmptyState scene="notes" title={t.empty} />
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
+        <div className="relative overflow-x-auto rounded-2xl border border-border bg-surface">
           <table className="w-full min-w-[40rem] text-sm">
             <thead className="border-b border-border text-left text-muted">
               <tr>

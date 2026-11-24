@@ -1,11 +1,116 @@
-# BRAND NAME — psychologist marketplace
+# Psychologos — find and book a licensed psychologist
 
-Find, compare and book sessions with licensed psychologists and
-psychotherapists. Launch market: Greece. Languages: Greek (default) and English.
+[![CI](https://github.com/40is40inos/psychologist-marketplace/actions/workflows/ci.yml/badge.svg)](https://github.com/40is40inos/psychologist-marketplace/actions/workflows/ci.yml)
 
-## Stack
-Next.js 16 (App Router, Cache Components) · TypeScript · Tailwind CSS 4 ·
-Prisma 7 + PostgreSQL · Leaflet maps · lucide-react icons.
+A full-stack marketplace where people in Greece compare **licensed psychologists**,
+see **real availability** and book **in-person, video or phone** sessions.
+Psychologists run their practice from it (calendar, clients, encrypted notes,
+payments, receipts), and an admin team verifies every license. Greek and
+English throughout, prices in EUR, built to EU privacy standards for health data.
+
+"Psychologos" is a working name; the brand is one setting (`NEXT_PUBLIC_BRAND_NAME`).
+
+## Live demo
+
+**[psychologist-marketplace-demo.onrender.com/en/demo](https://psychologist-marketplace-demo.onrender.com/en/demo)**
+([Greek](https://psychologist-marketplace-demo.onrender.com/el/demo))
+
+Sign in with **one click** as a client, a psychologist or an admin — no sign-up,
+password or email. All data is fictional, and no emails, SMS or payments are
+sent. The demo runs on a free plan, so it sleeps when idle: the first page can
+take up to a minute to load.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Home page with search](docs/screenshots/home.png) | ![Search results with filters](docs/screenshots/search.png) |
+| **Home**: search by concern, place, language and date | **Search**: filters, sorting, list or map, next free slot |
+| ![Psychologist profile with live booking calendar](docs/screenshots/profile.png) | ![Matching results with reasons](docs/screenshots/matching.png) |
+| **Profile**: verified license, approach, prices, live calendar | **"Help me choose"**: questionnaire → 3–5 matches with plain reasons |
+| ![Client appointments](docs/screenshots/client-account.png) | ![Psychologist dashboard](docs/screenshots/psychologist-dashboard.png) |
+| **Client account**: upcoming and past sessions, requests | **Psychologist workspace**: requests, sessions, earnings |
+| ![Weekly hours per format](docs/screenshots/psychologist-calendar.png) | ![Admin license verification](docs/screenshots/admin-verifications.png) |
+| **Availability**: weekly hours per format, time off, sync | **Admin**: license verification, disputes, audit log |
+
+<p>
+  <img src="docs/screenshots/mobile-home-el.png" alt="Home page on a phone, in Greek" width="260">
+  &nbsp;
+  <img src="docs/screenshots/mobile-profile-el.png" alt="Psychologist profile on a phone, in Greek" width="260">
+</p>
+
+Mobile-first and bilingual (Greek shown above). The demo guide is at
+[`/en/demo`](docs/screenshots/demo-guide.png).
+
+## Features
+
+**Clients**
+- Search by concern, approach, client type, city or online, language, gender, price and earliest availability; list or map view.
+- "Help me choose": a short questionnaire suggests 3–5 psychologists and explains why.
+- Book a real free slot, fill in an intake form, pay at the session or by card, add it to their calendar.
+- Reschedule or cancel within each psychologist's policy, message the psychologist (encrypted), get reminders, download receipts.
+- Privacy centre: consents, data export, account deletion.
+
+**Psychologists**
+- Onboarding wizard with license and ID upload, bilingual profile, prices per format, office with map.
+- Weekly hours per format, buffers, notice, booking window, time off, extra hours, Google/Outlook calendar sync.
+- Accept or decline requests, video sessions, client list with private encrypted notes.
+- Payments (Stripe Connect payouts), Greek receipts ready for the tax authority's myDATA, analytics, feedback.
+
+**Admins**
+- License verification with document review and history, user management, bookings and refunds, payment disputes.
+- Review moderation, editable taxonomy and languages, CMS for articles and legal pages, analytics.
+- Append-only audit log of every view of sensitive records.
+
+**Everyone**
+- Email/password, magic links, Google sign-in, two-step sign-in (mandatory for psychologists and admins), password reset, email verification and change, sign out other devices.
+- Crisis resources on every page ("Need urgent help?"), risk-signal detection in intake text, discreet emails and card statements.
+
+## Tech stack
+
+| Area | Technology |
+|---|---|
+| Framework | **Next.js 16** (App Router, Cache Components / partial prerendering, Server Actions), **React 19**, **TypeScript** |
+| Styling | **Tailwind CSS 4** with design tokens (light and dark), own accessible UI primitives, lucide-react icons, Commissioner font (Latin + Greek) |
+| Data | **PostgreSQL** with **Prisma 7** (`@prisma/adapter-pg`), hand-reviewed SQL migrations, Postgres full-text search |
+| Validation | Zod 4 on every server action and route |
+| Auth | Own implementation: scrypt passwords, hashed session and one-time tokens, TOTP 2FA (QR via `qrcode`), Google OIDC with PKCE verified by `jose` |
+| Payments | **Stripe** Checkout (SCA) + Stripe Connect Express (destination charges, application fees, refunds) |
+| Files | S3-compatible storage (Cloudflare R2 / AWS S3) via `aws4fetch`, signed direct uploads and downloads |
+| Maps | Leaflet + react-leaflet (OpenStreetMap tiles, consent-gated) |
+| Video, email, SMS | Daily.co or built-in WebRTC; Resend; Twilio (console fallbacks in development) |
+| Testing and CI | **Vitest** (unit + database tests), **GitHub Actions** (migrations, schema drift check, lint, typecheck, tests, production build) |
+| Hosting | Render + Neon (public demo), Vercel + Neon + R2 (free test site or production), all in Frankfurt (EU) |
+
+## Engineering highlights
+
+- **No double bookings.** Bookings for a psychologist are serialised with a transaction-scoped Postgres advisory lock, and the slot is re-checked inside the transaction (`src/lib/booking.ts`).
+- **A pure, tested slot engine.** Weekly windows per format, buffers, notice, one-off extra hours and external busy times are combined in a database-free function that works in Athens local time and stays correct across daylight-saving changes. Because it touches no database, it's easy to test (`src/lib/availability.ts`, `tests/availability.test.ts`).
+- **Health data encrypted at rest.** Messages, intake answers, session notes, tax IDs, IBANs and TOTP secrets use AES-256-GCM. Views of sensitive records are written to an append-only audit log.
+- **Every sign-in method ends in one place.** Password, magic link and Google all finish in `completeSignIn`, so two-step sign-in can never be skipped. One-time links are stored only as hashes, are bound to a purpose (sign-in, reset, email change), work once, and confirm with a button so email scanners can't spend them.
+- **Safe uploads on serverless hosts.** Browsers upload straight to the bucket with short-lived signed URLs. The server then checks the real file type from its first bytes and deletes anything invalid. Documents are served only after a permission check, through one-minute signed links.
+- **Rate limiting shared by all instances.** One atomic `INSERT … ON CONFLICT` per check in Postgres, storing only a hash of the key (IP or email).
+- **Search that understands Greek.** Postgres full-text search with a GIN expression index, accent folding and prefix matching, plus taxonomy matching across both languages (`src/lib/fts.ts`).
+- **Caching with Cache Components.** Public data is cached with `"use cache"` and tags, and refreshed precisely with `updateTag` from server actions. Personal data streams in behind `Suspense`.
+- **Type-checked translations.** The English dictionary defines the shape; the Greek one fails the type check if a key is missing.
+- **Privacy and SEO built in.** GDPR consent records with versions, data export and deletion, essential-only cookies by default, a strict CSP and security headers, schema.org JSON-LD, sitemap and hreflang.
+- **A safe public demo.** One-click demo accounts that visitors can't lock, bookings that stay current between deploys, and search engines kept out (`src/config/demo.ts`).
+
+## Project structure
+
+```
+src/
+  app/[lang]/        pages for /el and /en (account, dashboard, admin, booking, SEO pages)
+  app/api/           route handlers (webhooks, cron jobs, files, calendar feeds, health)
+  actions/           server actions (one file per area)
+  lib/               domain logic: availability, booking, payments, search, crypto, auth
+  domain/            shared constants and types (roles, taxonomy, session types)
+  components/        UI, grouped by area, plus accessible primitives in components/ui
+  i18n/              locale config and typed dictionaries
+prisma/              schema, migrations, seed (demo data) and reference data
+tests/               Vitest suites
+docs/                data model, deployment guides, screenshots
+```
 
 ## Getting started
 ```bash
@@ -35,6 +140,16 @@ Seed accounts all use `SEED_PASSWORD` from `.env`:
 `admin@example.test` (admin), `client@example.test` (client),
 `psychologist1@example.test` (verified psychologist),
 `applicant1@example.test` (psychologist awaiting verification).
+To try the one-click demo locally, start the dev server with `DEMO_MODE=true`.
+
+### Checks
+```bash
+npm run lint
+npm run typecheck   # generates Next.js route types first
+npm test            # database tests run when DATABASE_URL is set
+npm run build
+```
+CI runs all of these on every push and pull request, against a fresh Postgres.
 
 ## Deploy
 - **Public demo** (fictional data, one-click demo accounts, free):
@@ -43,10 +158,17 @@ Seed accounts all use `SEED_PASSWORD` from `.env`:
   [docs/deploy-free.md](docs/deploy-free.md).
 - **Production** (paid plans, own domain, backups): [docs/deployment.md](docs/deployment.md).
 
-## Section 1 — market and basics
+---
+
+# Implementation notes
+
+The rest of this file maps each part of the original brief to where it lives
+in the code.
+
+## Market and basics
 | Concern | Where |
 |---|---|
-| Brand name placeholder (env `NEXT_PUBLIC_BRAND_NAME`) | `src/config/brand.ts` |
+| Brand name (env `NEXT_PUBLIC_BRAND_NAME`, "Psychologos" in the demo) and site address | `src/config/brand.ts` |
 | Markets (GR now; add EU countries here), time zone, crisis lines | `src/config/market.ts` |
 | Locales, Intl tags, default locale | `src/i18n/config.ts` |
 | Dictionaries (`en.ts` defines the shape; `el.ts` must match or the type check fails) | `src/i18n/dictionaries/` |
@@ -54,7 +176,7 @@ Seed accounts all use `SEED_PASSWORD` from `.env`:
 | EUR formatting from integer cents, dates/times in Europe/Athens | `src/lib/format.ts`, `src/lib/time.ts` |
 | Session types: `in_person`, `video`, `phone` | `src/domain/session-types.ts` |
 
-## Section 2 — user roles
+## User roles
 | Role | Area | Can do |
 |---|---|---|
 | Client | `/[lang]/account` | Appointments, messages, saved, receipts, reminder settings |
@@ -62,11 +184,17 @@ Seed accounts all use `SEED_PASSWORD` from `.env`:
 | Admin | `/[lang]/admin` | Analytics, license verification, user suspension, disputes; all actions audited |
 
 - Permissions: `src/domain/roles.ts` (`can(role, permission)`).
-- Auth: scrypt hashes, hashed session tokens in `AuthSession`, httpOnly cookie,
-  rate-limited sign-in (in-memory; use Redis with more than one server).
-- Admins are created by the seed only. Psychologists stay out of search until verified.
+- Auth: scrypt hashes, hashed session tokens in `AuthSession`, httpOnly cookie.
+  Sign-in, sign-up, magic links, password reset, contact form and uploads are
+  rate-limited in Postgres (`src/lib/auth/rate-limit.ts`), shared by all server instances.
+- Account security (`/[lang]/security`): change or set a password, change email
+  (confirmed by a link to the new address), confirm email, see and sign out
+  other devices. Every security change signs out other devices and sends a
+  "was this you?" email (`src/actions/account-security.ts`, `src/lib/auth/tokens.ts`).
+- Admins come from the seed (development) or `npm run db:create-admin` (production).
+  Psychologists stay out of search until verified.
 
-## Section 3 — client features
+## Client features
 | Feature | Where |
 |---|---|
 | Home search: concern, city or online, language, date | `src/components/search-form.tsx` |
@@ -84,11 +212,11 @@ Seed accounts all use `SEED_PASSWORD` from `.env`:
 | Calendar download | `/api/appointments/[id]/ics` |
 | Private post-session feedback (public only with explicit opt-in) | `Feedback` model, appointment page |
 
-## Section 4 — psychologist workspace (`/[lang]/dashboard`)
+## Psychologist workspace (`/[lang]/dashboard`)
 | Feature | Where |
 |---|---|
 | Onboarding wizard (personal, license + ID upload, education, specialties, photo/bio/video, prices, office, IBAN/ΑΦΜ, submit) | `dashboard/profile`, `src/actions/onboarding.ts` |
-| Private file storage (content-sniffed uploads; documents only for owner/admin) | `src/lib/storage.ts`, `/api/documents/[id]`, `/api/photos/[id]` |
+| Private file storage: S3-compatible bucket in production (direct browser uploads with signed URLs, real type checked from the first bytes), local disk in development; documents only for owner/admin via short-lived signed links | `src/lib/storage.ts`, `src/actions/uploads.ts`, `/api/documents/[id]`, `/api/photos/[id]` |
 | Weekly hours per format, buffer, notice, booking window, time off, manual approval | `dashboard/calendar`, `src/lib/availability.ts` |
 | Calendar sync: import busy times from Google/Outlook secret iCal links; export feed | `src/lib/calendar-sync.ts`, `/api/calendar/[token]`, `/api/cron/calendars` |
 | Appointments: accept/decline, reschedule, cancel, no-show, completed, mark paid | `dashboard/appointments`, `src/lib/booking-psychologist.ts` |
@@ -101,7 +229,7 @@ Seed accounts all use `SEED_PASSWORD` from `.env`:
 myDATA: confirm the VAT exemption and income classification codes with an accountant
 (`MYDATA_*` env vars); set `MYDATA_ENV=production` for the live endpoint.
 
-## Section 5 — admin panel (`/[lang]/admin`)
+## Admin panel (`/[lang]/admin`)
 | Feature | Where |
 |---|---|
 | License verification with documents | `admin/verifications` |
@@ -114,7 +242,7 @@ myDATA: confirm the VAT exemption and income classification codes with an accoun
 
 The seeded privacy/terms/cookies pages are templates and must be reviewed by legal counsel.
 
-## Section 6 — mental-health safeguards
+## Mental-health safeguards
 | Requirement | How |
 |---|---|
 | Crisis safety | "Need urgent help?" link in the header of every page → `/[lang]/urgent-help` (static, tap-to-call 112 / 1018 / 10306); crisis notice in the footer and the booking flow; "not an emergency service" stated everywhere |
@@ -125,25 +253,34 @@ The seeded privacy/terms/cookies pages are templates and must be reviewed by leg
 
 Pick a brand name and card-statement descriptor that don't reveal the service ("psych", "therapy").
 
-### Running reminders
-Call the cron endpoint every 5 minutes (Vercel Cron, GitHub Actions, or cron + curl):
+### Scheduled jobs
+| Job | Every | Purpose |
+|---|---|---|
+| `/api/cron/notifications` | 5 minutes | reminders and queued emails/SMS |
+| `/api/cron/calendars` | 15 minutes | external calendar sync |
+| `/api/cron/retention` | daily (hourly on paid plans) | data minimisation, expired holds and rate limits |
+
+Each call needs `Authorization: Bearer $CRON_SECRET`. On Vercel's free plan
+only the daily job can live in `vercel.json`; the others run from an external
+scheduler such as cron-job.org (see [docs/deployment.md](docs/deployment.md)).
 ```bash
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/notifications
 ```
 Without `RESEND_API_KEY` / `TWILIO_*` the messages are written to the server log.
 
 ### Not yet
-- Email verification and password reset.
+- Recurring weekly sessions and session packages.
+- Billing psychologists for paid plans (plan prices are stored but not charged),
+  and platform commission invoices.
+- Error tracking and monitoring (e.g. Sentry with EU data residency).
 - Map tiles use OpenStreetMap's public server; set `NEXT_PUBLIC_MAP_TILE_URL`
   to a commercial (EU-hosted) tile provider before launch.
-- Payouts to psychologists from card payments (Stripe Connect or manual bank
-  transfers) are not automated yet.
 
-## Section 7 — compliance and security
+## Compliance and security
 | Requirement | How |
 |---|---|
 | GDPR consent | Separate, explicit Art. 9 health-data consent at client sign-up; every consent stored as a versioned `ConsentRecord` (`LEGAL_VERSION` in `src/config/legal.ts`). Withdrawing it blocks booking and messaging. Manage in *Account → Privacy* (psychologists/admins: *Security*) |
-| Minimisation | Hourly `/api/cron/retention` deletes expired sessions, video signalling (1 day), search logs (13 months), notification logs (12 months) and releases unpaid card holds |
+| Minimisation | `/api/cron/retention` (daily, or hourly on paid plans) deletes expired sessions and rate-limit counters, video signalling (1 day), search logs (13 months), notification logs (12 months) and releases unpaid card holds |
 | Export / deletion | `/api/account/export` (JSON, decrypted); self-service deletion anonymises the account and deletes messages, intake answers, feedback text and saved items; receipts kept without the name, as tax law requires |
 | Cookie banner | Essential cookies only by default; maps/videos load only after "Allow" (equal-weight buttons, changeable later). Third-party map tiles are click-to-load without consent |
 | Privacy policy | DPA-ready template (`prisma/seed-legal.ts`): controller vs processor roles, Art. 6/9 legal bases, EU processors table, transfers, retention table, rights, HDPA complaint route |
@@ -172,7 +309,7 @@ Without a key, clients pay at the session and the card option is hidden.
 curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cron/retention
 ```
 
-## Section 8 — design direction
+## Design direction
 | Brief | How |
 |---|---|
 | Calm, warm, human | Soft warm neutrals (`--bg #faf8f4`), generous spacing, rounded-3xl cards with soft shadows; no clinical blues or hard edges |
@@ -181,9 +318,9 @@ curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://your-domain/api/cro
 | Real photography | Larger, softly rounded portrait slots (`src/components/avatar.tsx`); photo guidance in the psychologist profile editor. Psychologists upload their own photos. The demo seed uses initials, so no stock photos of people pretend to be therapists |
 | Soft illustrations | Token-coloured line illustrations for empty states (`src/components/ui/illustrations.tsx`), wired into the shared `EmptyState` |
 | Reassuring microcopy | e.g. "It's okay not to know where to start" on the home page, gentle empty-state and no-results copy, in Greek and English |
-| Trust signals | Verified badge plus licence number on every card and profile, "We checked this licence" note, "No booking fees or hidden costs" on cards, profiles and the booking summary |
+| Trust signals | Verified badge plus license number on every card and profile, "We checked this license" note, "No booking fees or hidden costs" on cards, profiles and the booking summary |
 
-## Section 9 — pages
+## Pages
 Every route is under `/el/…` and `/en/…`.
 
 | Page | Route |
@@ -212,30 +349,31 @@ editorial copy comes from CMS pages named `concern-<slug>` / `city-<slug>`
 (see the seeded `concern-anxiety`). `/sitemap.xml` lists all public pages with
 hreflang alternates; `/robots.txt` keeps private areas out of search.
 
-## Section 10 — tech stack
+## Tech stack choices
 | Area | Brief | Built with |
 |---|---|---|
 | Frontend | Next.js App Router + TS + Tailwind + shadcn/ui | Next.js 16 (App Router, Cache Components, server actions), React 19, TypeScript, Tailwind 4. **Not shadcn/ui:** the UI uses a small set of our own accessible primitives (`src/components/ui`) on the same design tokens, the same copy-in approach shadcn uses, without Radix. Add shadcn for complex widgets (combobox, dialog) when needed; it reads the same CSS variables |
 | Backend | API routes / Node; Postgres + Prisma | Next.js route handlers and server actions; PostgreSQL with Prisma 7 (`@prisma/adapter-pg`) |
-| Auth | Email/password, Google, magic links, 2FA | scrypt passwords; **Sign in with Google** (OIDC + PKCE, ID token verified with Google's JWKS via `jose`, verified emails only, new accounts only after explicit consent); **magic links** (hashed one-time tokens, 15 min, confirm button so email scanners can't spend them); TOTP 2FA. Every method ends in `completeSignIn`, so 2FA always applies |
+| Auth | Email/password, Google, magic links, 2FA | scrypt passwords; **Sign in with Google** (OIDC + PKCE, ID token verified with Google's JWKS via `jose`, verified emails only, new accounts only after explicit consent; linking to an unverified account drops its password to prevent takeover); **magic links**, password reset and email confirmation (hashed, purpose-bound one-time tokens with a confirm button so email scanners can't spend them); TOTP 2FA. Every method ends in `completeSignIn`, so 2FA always applies |
 | Payments | Stripe Connect / Viva Wallet | **Stripe Connect Express**: psychologists onboard from *Workspace → Payments*; card bookings are destination charges with the plan commission as application fee; refunds reverse the transfer and fee; the platform stays merchant of record (neutral statement name). Card payment is offered only once a psychologist's account is ready |
 | Video | Daily.co / Twilio / Whereby | Daily.co (`DAILY_API_KEY`), with built-in peer-to-peer WebRTC as fallback |
 | Email / SMS | Resend/Postmark + Twilio/Infobip | Resend + Twilio, console fallback in development |
 | Search | Postgres FTS, or Meilisearch/Algolia | **Postgres full-text search** on profile text (GIN index, `simple` config, Greek accent folding, prefix matching) in `src/lib/fts.ts`, plus taxonomy matching across languages. Swappable behind `searchProfileText` |
-| Hosting | EU region | `vercel.json` pins functions to `fra1` (Frankfurt) and schedules the crons. Use an EU database (e.g. Neon/Supabase/RDS in `eu-central-1`) and EU file storage |
-| SEO | SSR, schema.org, sitemap, hreflang | Server rendering with partial prerendering; JSON-LD `Person` + `MedicalBusiness` (licence as credential, address, prices) on profiles, `WebSite` + `SearchAction` and `Organization` on home, `FAQPage` / `BreadcrumbList` on content pages; `/sitemap.xml` and `alternates.languages` hreflang on every public page |
+| Hosting | EU region | Everything in Frankfurt. **Public demo:** Render web service (`render.yaml`) + Neon Postgres. **Production / test site:** Vercel (`vercel.json` pins `fra1` and runs migrations on deploy) + Neon + Cloudflare R2 with EU jurisdiction. `/api/health` and `/api/ping` for uptime checks |
+| SEO | SSR, schema.org, sitemap, hreflang | Server rendering with partial prerendering; JSON-LD `Person` + `MedicalBusiness` (license as credential, address, prices) on profiles, `WebSite` + `SearchAction` and `Organization` on home, `FAQPage` / `BreadcrumbList` on content pages; `/sitemap.xml` and `alternates.languages` hreflang on every public page |
+| Quality | — | Vitest unit and database tests (`tests/`); GitHub Actions CI on every push and pull request: migrations on a fresh Postgres, schema drift check, lint, typecheck, tests, production build |
 
 ### Enabling Google sign-in and payouts
 - Google: set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` (redirect URI `/api/auth/google/callback`). The buttons appear automatically.
 - Stripe Connect: enable Connect (Express) in the Stripe dashboard, add a Connect webhook for `account.updated` to `/api/webhooks/stripe` and set `STRIPE_CONNECT_WEBHOOK_SECRET`.
 
-## Section 11 — data model
+## Data model
 Every entity in the brief has a model; see **[docs/data-model.md](docs/data-model.md)**
 for the entity-to-model table, an ER diagram and where sensitive data is
-encrypted. Added in this section: `ClientProfile` (preferences, encrypted saved
+encrypted. Notable models: `ClientProfile` (preferences, encrypted saved
 matches), `IntakeForm` (intake answers moved out of `Appointment`),
 `AvailabilityException` (was `TimeOff`; now also extra hours) and
-`LicenseVerification` (history of licence checks). The migration renames and
+`LicenseVerification` (history of license checks). The migration renames and
 copies existing rows, so no data is lost.
 
 ## Conventions
