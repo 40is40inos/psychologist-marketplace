@@ -10,6 +10,7 @@ import { brand } from "@/config/brand";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { otherSessionCount, requireUser } from "@/lib/auth/session";
+import { isDemoAccount } from "@/config/demo";
 import { generateSecret, otpauthUri } from "@/lib/auth/totp";
 import { twoFactorRequired } from "@/lib/auth/two-factor";
 import { decrypt, encrypt } from "@/lib/crypto";
@@ -38,6 +39,18 @@ export default async function SecurityPage({ params, searchParams }: PageProps<"
 
 async function Security({ locale, dict, searchParams }: { locale: Locale; dict: Dictionary; searchParams: PageProps<"/[lang]/security">["searchParams"] }) {
   const me = await requireUser(locale, `/${locale}/security`);
+  if (isDemoAccount(me.email)) {
+    return (
+      <div className="space-y-6">
+        <h1 className="flex items-center gap-2 font-display text-3xl font-semibold tracking-tight text-ink">
+          <ShieldCheck className="size-7 text-primary" aria-hidden="true" />
+          {dict.accountSecurity.pageTitle}
+        </h1>
+        <FormAlert tone="success">{dict.accountSecurity.demoLocked}</FormAlert>
+        {me.role !== "client" && <PrivacyCenter user={me} locale={locale} dict={dict} />}
+      </div>
+    );
+  }
   const t = dict.twoFactor;
   const sp = await searchParams;
   const s = dict.accountSecurity;

@@ -19,7 +19,8 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/documents/[id]"
   // Bucket storage: a one-minute link, handed out only after the checks above.
   const signed = await signedDownloadUrl(doc.storageKey, { seconds: 60, mimeType: doc.mimeType, filename: doc.filename });
   if (signed) return new Response(null, { status: 302, headers: { Location: signed, "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer" } });
-  const body = await readStored(doc.storageKey);
+  const body = await readStored(doc.storageKey).catch(() => null);
+  if (!body) return new Response("Not found", { status: 404 });
   return new Response(new Uint8Array(body), {
     headers: {
       "Content-Type": doc.mimeType,

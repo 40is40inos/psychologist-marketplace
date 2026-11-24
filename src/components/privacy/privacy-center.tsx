@@ -8,6 +8,7 @@ import { fill, formatShortDate } from "@/lib/format";
 import { buttonClass } from "@/components/ui/form";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { DeleteAccountForm } from "./delete-account-form";
+import { isDemoAccount } from "@/config/demo";
 import { CookieChoice } from "./cookie-choice";
 
 /** Consents, data export and deletion. Shared by the client account and the security page. */
@@ -66,7 +67,7 @@ export async function PrivacyCenter({ user, locale, dict }: { user: CurrentUser;
         <section aria-labelledby="delete" className="space-y-2 rounded-2xl border border-accent/30 bg-accent-soft/40 p-5">
           <h2 id="delete" className="text-lg font-semibold text-ink">{t.delete}</h2>
           <p className="text-sm text-ink">{t.deleteHint}</p>
-          <DeleteAccountForm locale={locale} t={t} />
+          {isDemoAccount(user.email) ? <p className="text-sm text-muted">{dict.accountSecurity.demoLocked}</p> : <DeleteAccountForm locale={locale} t={t} />}
         </section>
       )}
     </div>

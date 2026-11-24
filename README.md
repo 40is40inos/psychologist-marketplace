@@ -36,6 +36,13 @@ Seed accounts all use `SEED_PASSWORD` from `.env`:
 `psychologist1@example.test` (verified psychologist),
 `applicant1@example.test` (psychologist awaiting verification).
 
+## Deploy
+- **Public demo** (fictional data, one-click demo accounts, free):
+  Render + Neon. See [docs/deploy-render.md](docs/deploy-render.md).
+- **Free test site** (Vercel Hobby + Neon + Cloudflare R2):
+  [docs/deploy-free.md](docs/deploy-free.md).
+- **Production** (paid plans, own domain, backups): [docs/deployment.md](docs/deployment.md).
+
 ## Section 1 — market and basics
 | Concern | Where |
 |---|---|

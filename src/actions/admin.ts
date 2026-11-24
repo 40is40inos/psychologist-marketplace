@@ -1,5 +1,6 @@
 "use server";
 
+import { isDemoAccount } from "@/config/demo";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import type { Prisma } from "@/generated/prisma/client";
@@ -92,6 +93,9 @@ export async function setUserStatus(formData: FormData): Promise<void> {
   if (!parsed.success) return;
   const { userId, status } = parsed.data;
   if (userId === admin.id) return; // Admins can't lock themselves out.
+  // Demo: the shared demo accounts can't be suspended.
+  const target = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
+  if (!target || (status === "suspended" && isDemoAccount(target.email))) return;
 
   await db.$transaction(async (tx) => {
     const user = await tx.user.update({

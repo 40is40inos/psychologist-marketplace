@@ -7,7 +7,8 @@ const PENDING_TTL_MS = 5 * 60_000;
 
 /** Psychologists and admins must use 2FA (set TWO_FACTOR_ENFORCE=false only for local development). */
 export function twoFactorRequired(role: Role): boolean {
-  if (process.env.TWO_FACTOR_ENFORCE === "false") return false;
+  // Off for local development, and on the public demo (shared demo accounts).
+  if (process.env.TWO_FACTOR_ENFORCE === "false" || process.env.DEMO_MODE === "true") return false;
   return role === "psychologist" || role === "admin";
 }
 

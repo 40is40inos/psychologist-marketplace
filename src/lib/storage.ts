@@ -45,8 +45,9 @@ export const directUploads = s3 !== null;
 const ROOT = path.resolve(process.env.STORAGE_DIR ?? "storage");
 
 function localOnly() {
-  // Serverless file systems are temporary: refuse instead of losing files.
-  if (process.env.VERCEL) throw new Error("File storage is not configured: set S3_BUCKET, S3_ENDPOINT, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY");
+  // Hosted file systems are temporary: refuse instead of losing files. The
+  // public demo accepts that (uploads vanish on restart; data is fictional).
+  if ((process.env.VERCEL || process.env.RENDER) && process.env.DEMO_MODE !== "true") throw new Error("File storage is not configured: set S3_BUCKET, S3_ENDPOINT, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY");
 }
 
 function safePath(key: string): string {

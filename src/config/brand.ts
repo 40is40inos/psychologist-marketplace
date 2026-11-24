@@ -8,13 +8,14 @@ export const brand = {
   /**
    * Public address, used in emails, sitemaps and sign-in redirects. On Vercel
    * it falls back to the project's production domain (*.vercel.app or your
-   * own), so a first deploy works without setting it.
+   * own), on Render to the service address (*.onrender.com), so a first
+   * deploy works without setting it.
    */
   siteUrl:
     process.env.NEXT_PUBLIC_SITE_URL ??
     (process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "http://localhost:3000"),
+      : process.env.RENDER_EXTERNAL_URL || "http://localhost:3000"),
   supportEmail: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? "support@example.com",
   /**
    * Name shown on card statements once card payments are enabled. Keep it

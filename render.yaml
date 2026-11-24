@@ -1,0 +1,42 @@
+# Render Blueprint for the public DEMO (fictional data, one-click demo accounts).
+# Render → New → Blueprint → pick this repository. See docs/deploy-render.md.
+# Not for a real launch: demo mode gives anyone one-click admin access.
+services:
+  - type: web
+    name: psychologist-marketplace-demo
+    runtime: node
+    plan: free
+    region: frankfurt
+    # Dev dependencies (Prisma CLI, tsx, Tailwind) are needed to build.
+    buildCommand: npm ci --include=dev && npm run render-build
+    startCommand: npm start
+    healthCheckPath: /api/ping
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      # Postgres connection string (Neon free plan, Frankfurt; use the DIRECT,
+      # non-pooled string). Render asks for it when you create the Blueprint.
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_POOL_MAX
+        value: "5"
+      # Lower build memory on the small free instance.
+      - key: BUILD_CPUS
+        value: "1"
+      # Name shown across the site and in the demo guide. Render asks for it.
+      - key: NEXT_PUBLIC_BRAND_NAME
+        sync: false
+      # Optional: link to the source code, shown on /demo. Leave empty to hide.
+      - key: DEMO_SOURCE_URL
+        sync: false
+      - key: DEMO_MODE
+        value: "true"
+      # Generated once by Render (random, base64, 256-bit) and kept.
+      - key: DATA_ENCRYPTION_KEY
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      - key: SEED_PASSWORD
+        generateValue: true

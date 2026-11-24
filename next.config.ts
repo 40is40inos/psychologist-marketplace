@@ -49,6 +49,8 @@ const securityHeaders = [
   // Camera and microphone only for video sessions (our page and Daily rooms).
   { key: "Permissions-Policy", value: 'camera=(self "https://*.daily.co"), microphone=(self "https://*.daily.co"), display-capture=(self "https://*.daily.co"), geolocation=(), payment=(), usb=(), interest-cohort=()' },
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // Public demo: fictional data, keep every page out of search engines.
+  ...(process.env.DEMO_MODE === "true" ? [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] : []),
 ];
 
 const nextConfig: NextConfig = {

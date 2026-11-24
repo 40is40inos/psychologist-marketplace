@@ -16,7 +16,8 @@ import { PrismaClient } from "../src/generated/prisma/client";
 import { psychologists, toMinutes } from "./seed-data";
 import { seedReference } from "./reference";
 
-if (process.env.NODE_ENV === "production") throw new Error("Refusing to seed in production");
+// The public demo (DEMO_MODE=true) is seeded on every deploy; real sites never.
+if (process.env.NODE_ENV === "production" && process.env.DEMO_MODE !== "true") throw new Error("Refusing to seed in production");
 
 const password = process.env.SEED_PASSWORD;
 const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@example.test";

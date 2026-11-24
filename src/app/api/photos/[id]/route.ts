@@ -23,7 +23,8 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/photos/[id]">) 
   // the CDN may reuse the redirect for 10 minutes when the photo is public.
   const signed = await signedDownloadUrl(doc.storageKey, { seconds: 3600, mimeType: doc.mimeType });
   if (signed) return new Response(null, { status: 302, headers: { Location: signed, "Cache-Control": isPublic ? "public, max-age=600" : "private, no-store" } });
-  const body = await readStored(doc.storageKey);
+  const body = await readStored(doc.storageKey).catch(() => null);
+  if (!body) return new Response("Not found", { status: 404 });
   return new Response(new Uint8Array(body), {
     headers: {
       "Content-Type": doc.mimeType,

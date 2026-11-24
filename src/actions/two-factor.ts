@@ -6,6 +6,7 @@ import { refresh } from "next/cache";
 import { db } from "@/lib/db";
 import { decrypt } from "@/lib/crypto";
 import { createSession, destroyOtherSessions, getCurrentUser } from "@/lib/auth/session";
+import { isDemoAccount } from "@/config/demo";
 import { rateLimit } from "@/lib/auth/rate-limit";
 import { generateRecoveryCodes, hashRecoveryCode, verifyTotp } from "@/lib/auth/totp";
 import { PENDING_COOKIE, readPending, twoFactorRequired } from "@/lib/auth/two-factor";
@@ -63,6 +64,7 @@ export async function verifySignIn(_p: TwoFactorState, fd: FormData): Promise<Tw
 export async function enableTwoFactor(_p: TwoFactorState, fd: FormData): Promise<TwoFactorState> {
   const me = await getCurrentUser();
   if (!me) redirect(`/${localeOf(fd)}/sign-in`);
+  if (isDemoAccount(me.email)) return fail("invalid");
   if (!(await rateLimit(`2fa-setup:${me.id}`, 10, 10 * 60_000))) return fail("tooMany");
   const user = await db.user.findUniqueOrThrow({ where: { id: me.id }, select: { totpSecretEncrypted: true, totpEnabledAt: true } });
   if (user.totpEnabledAt || !user.totpSecretEncrypted) return fail("expired");

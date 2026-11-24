@@ -8,6 +8,7 @@ import { fill } from "@/lib/format";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { CookieBanner } from "@/components/privacy/cookie-consent";
+import { DemoBanner } from "@/components/demo/demo-banner";
 import "../globals.css";
 
 // Friendly, highly legible sans with full Greek support, by a Greek type designer.
@@ -81,6 +82,7 @@ export default async function LocaleLayout({
         >
           {dict.a11y.skipToContent}
         </a>
+        <DemoBanner locale={lang} t={dict.demo} />
         <SiteHeader locale={lang} dict={dict} />
         <main id="main" className="flex-1">
           {children}

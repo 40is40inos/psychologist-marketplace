@@ -1,5 +1,6 @@
 "use server";
 
+import { isDemoAccount } from "@/config/demo";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { refresh } from "next/cache";
@@ -44,7 +45,7 @@ export async function deleteAccount(_p: DeleteState, fd: FormData): Promise<Dele
   const locale = localeOf(fd);
   const user = await getCurrentUser();
   if (!user) redirect(`/${locale}/sign-in`);
-  if (user.role !== "client") return { error: "confirm", at: Date.now() };
+  if (user.role !== "client" || isDemoAccount(user.email)) return { error: "confirm", at: Date.now() };
   const word = String(fd.get("confirm") ?? "").trim().toUpperCase();
   if (word !== "DELETE" && word !== "ΔΙΑΓΡΑΦΗ") return { error: "confirm", at: Date.now() };
 

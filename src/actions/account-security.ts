@@ -10,6 +10,7 @@ import { getCurrentUser, destroyAllSessions, destroyOtherSessions } from "@/lib/
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { rateLimit } from "@/lib/auth/rate-limit";
 import { spendToken } from "@/lib/auth/tokens";
+import { isDemoAccount } from "@/config/demo";
 import { sendEmailChangeEmails, sendPasswordResetEmail, sendSecurityNotice, sendVerificationEmail } from "@/lib/auth/account-emails";
 
 /**
@@ -19,7 +20,7 @@ import { sendEmailChangeEmails, sendPasswordResetEmail, sendSecurityNotice, send
  */
 export interface SecurityState {
   ok?: boolean;
-  error?: "invalid" | "rate_limited" | "expired" | "mismatch" | "weak" | "wrong_password" | "same_email";
+  error?: "invalid" | "rate_limited" | "expired" | "mismatch" | "weak" | "wrong_password" | "same_email" | "demo";
   at?: number;
 }
 
@@ -62,7 +63,7 @@ export async function requestPasswordReset(_p: SecurityState, fd: FormData): Pro
   if (!(await rateLimit(`reset:${await clientIp()}`, 5, 15 * 60_000)) || !(await rateLimit(`reset:${parsed.data}`, 3, 60 * 60_000))) return fail("rate_limited");
 
   const user = await db.user.findUnique({ where: { email: parsed.data }, select: { id: true, email: true, locale: true, status: true, deletedAt: true } });
-  if (user && user.status === "active" && !user.deletedAt) await sendPasswordResetEmail(user);
+  if (user && user.status === "active" && !user.deletedAt && !isDemoAccount(user.email)) await sendPasswordResetEmail(user);
   return done();
 }
 
@@ -95,6 +96,7 @@ export async function resetPassword(_p: SecurityState, fd: FormData): Promise<Se
 export async function changePassword(_p: SecurityState, fd: FormData): Promise<SecurityState> {
   const me = await getCurrentUser();
   if (!me) redirect(`/${localeOf(fd)}/sign-in`);
+  if (isDemoAccount(me.email)) return fail("demo");
   if (!(await rateLimit(`pw-change:${me.id}`, 5, 15 * 60_000))) return fail("rate_limited");
   const user = await db.user.findUniqueOrThrow({ where: { id: me.id }, select: { passwordHash: true, email: true, locale: true } });
 
@@ -121,6 +123,7 @@ export async function changePassword(_p: SecurityState, fd: FormData): Promise<S
 export async function requestEmailChange(_p: SecurityState, fd: FormData): Promise<SecurityState> {
   const me = await getCurrentUser();
   if (!me) redirect(`/${localeOf(fd)}/sign-in`);
+  if (isDemoAccount(me.email)) return fail("demo");
   const parsed = emailSchema.safeParse(fd.get("newEmail"));
   if (!parsed.success) return fail("invalid");
   if (!(await rateLimit(`email-change:${me.id}`, 3, 60 * 60_000))) return fail("rate_limited");
@@ -177,6 +180,8 @@ export async function resendVerification(_p: SecurityState, fd: FormData): Promi
 export async function signOutOtherDevices(fd: FormData): Promise<void> {
   const me = await getCurrentUser();
   if (!me) redirect(`/${localeOf(fd)}/sign-in`);
+  // Demo accounts are shared by many visitors: don't sign the others out.
+  if (isDemoAccount(me.email)) return;
   await destroyOtherSessions(me.id);
   await audit(me.id, "security.sign_out_others");
   refresh();
