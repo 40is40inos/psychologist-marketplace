@@ -1,7 +1,7 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { displayName } from "@/lib/slug";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ChevronRight, Receipt } from "lucide-react";
 import { isLocale } from "@/i18n/config";
@@ -11,7 +11,7 @@ import { db } from "@/lib/db";
 import { fill, formatPrice, formatShortDate } from "@/lib/format";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.account.receiptsTitle);
 
 export default function Page({ params }: PageProps<"/[lang]/account/receipts">) {
   return (

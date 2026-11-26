@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Circle, ExternalLink, FileText } from "lucide-react";
 import {
@@ -32,7 +32,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { UploadField } from "@/components/onboarding/upload-field";
 import { directUploads } from "@/lib/storage";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.onboarding.title);
 
 export default function ProfileWizardPage(props: PageProps<"/[lang]/dashboard/profile">) {
   return (

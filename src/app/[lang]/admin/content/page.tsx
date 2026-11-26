@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +10,8 @@ import { db } from "@/lib/db";
 import { formatShortDate } from "@/lib/format";
 import { buttonClass } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
+
+export const generateMetadata = privatePageMetadata((d) => d.adminX.content.title);
 
 export default async function AdminContentPage({ params }: PageProps<"/[lang]/admin/content">) {
   const { lang } = await params;

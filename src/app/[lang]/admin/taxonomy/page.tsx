@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { saveLanguage, saveSpecialty } from "@/actions/admin-x";
@@ -9,6 +10,8 @@ import { fill } from "@/lib/format";
 import { ActionForm } from "@/components/ui/action-form";
 import { inputClass } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
+
+export const generateMetadata = privatePageMetadata((d) => d.adminX.taxonomy.title);
 
 export default async function AdminTaxonomyPage({ params }: PageProps<"/[lang]/admin/taxonomy">) {
   const { lang } = await params;

@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
@@ -11,7 +11,7 @@ import { requirePsychologist } from "@/lib/workspace";
 import { PrintButton } from "@/components/account/print-button";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.paymentsPage.invoices);
 
 export default function InvoicePage(props: PageProps<"/[lang]/dashboard/payments/invoices/[id]">) {
   return (

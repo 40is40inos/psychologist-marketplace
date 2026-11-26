@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -14,6 +15,8 @@ import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 type Tab = "pending" | "approved" | "rejected";
+
+export const generateMetadata = privatePageMetadata((d) => d.adminX.reviews.title);
 
 export default async function AdminReviewsPage({ params, searchParams }: PageProps<"/[lang]/admin/reviews">) {
   const { lang } = await params;

@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import { isLocale, type Locale } from "@/i18n/config";
@@ -10,7 +10,7 @@ import { fill, formatShortDate } from "@/lib/format";
 import { requirePsychologist } from "@/lib/workspace";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.clientsPage.title);
 
 export default async function ClientsPage({ params }: PageProps<"/[lang]/dashboard/clients">) {
   const { lang } = await params;

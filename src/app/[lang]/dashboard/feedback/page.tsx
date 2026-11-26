@@ -1,5 +1,5 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Lock, Star } from "lucide-react";
 import { intlLocale, isLocale, type Locale } from "@/i18n/config";
@@ -9,7 +9,7 @@ import { fill } from "@/lib/format";
 import { requirePsychologist } from "@/lib/workspace";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.feedbackPage.title);
 
 export default async function FeedbackPage({ params }: PageProps<"/[lang]/dashboard/feedback">) {
   const { lang } = await params;

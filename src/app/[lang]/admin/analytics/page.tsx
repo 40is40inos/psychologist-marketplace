@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { intlLocale, isLocale, type Locale } from "@/i18n/config";
@@ -10,6 +11,8 @@ import { getTaxonomy } from "@/lib/taxonomy-data";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
 const DAYS = 30;
+
+export const generateMetadata = privatePageMetadata((d) => d.adminX.analytics.title);
 
 export default async function AdminAnalyticsPage({ params }: PageProps<"/[lang]/admin/analytics">) {
   const { lang } = await params;

@@ -1,7 +1,7 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { CalendarClock, Check } from "lucide-react";
 import { isSessionType } from "@/domain/session-types";
@@ -22,7 +22,7 @@ import { buttonClass } from "@/components/ui/form";
 import { CrisisNotice } from "@/components/crisis-notice";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.profile.availability);
 
 export default function BookPage(props: PageProps<"/[lang]/psychologists/[slug]/book">) {
   return (

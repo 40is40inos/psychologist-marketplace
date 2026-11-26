@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { currentMarket } from "@/config/market";
 import { intlLocale, isLocale } from "@/i18n/config";
@@ -13,7 +13,7 @@ import { SlotPicker } from "@/components/booking/slot-picker";
 import { FormAlert } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.apptPage.rescheduleTitle);
 
 export default function Page(props: PageProps<"/[lang]/dashboard/appointments/[id]/reschedule">) {
   return (

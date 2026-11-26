@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { savePlan } from "@/actions/plans";
@@ -10,6 +11,8 @@ import { PLAN_FEATURES } from "@/lib/plans";
 import { ActionForm } from "@/components/ui/action-form";
 import { inputClass } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
+
+export const generateMetadata = privatePageMetadata((d) => d.adminPlans.title);
 
 export default async function AdminPlansPage({ params }: PageProps<"/[lang]/admin/plans">) {
   const { lang } = await params;

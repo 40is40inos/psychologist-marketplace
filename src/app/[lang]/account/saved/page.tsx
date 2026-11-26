@@ -1,5 +1,5 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
@@ -11,7 +11,7 @@ import { PsychologistCard } from "@/components/psychologist-card";
 import { SaveButton } from "@/components/save-button";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.account.savedTitle);
 
 export default function Page({ params }: PageProps<"/[lang]/account/saved">) {
   return (

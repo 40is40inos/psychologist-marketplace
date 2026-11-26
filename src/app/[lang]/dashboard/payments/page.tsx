@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import { retryInvoice, saveMydataCredentials } from "@/actions/payments";
@@ -18,7 +18,7 @@ import { Field, inputClass } from "@/components/ui/form";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.paymentsPage.title);
 
 export default async function PaymentsPage({ params }: PageProps<"/[lang]/dashboard/payments">) {
   const { lang } = await params;

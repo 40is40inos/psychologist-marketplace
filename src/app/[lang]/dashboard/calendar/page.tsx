@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { randomBytes } from "node:crypto";
 import { CalendarSync, Lock, RefreshCw, Trash2 } from "lucide-react";
@@ -18,7 +18,7 @@ import { CopyField } from "@/components/ui/copy-field";
 import { Field, inputClass, buttonClass } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.calendarPage.title);
 
 export default async function CalendarPage({ params }: PageProps<"/[lang]/dashboard/calendar">) {
   const { lang } = await params;

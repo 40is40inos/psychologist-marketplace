@@ -1,5 +1,5 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { homePathFor } from "@/domain/roles";
 import { isLocale, type Locale } from "@/i18n/config";
@@ -7,7 +7,7 @@ import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { getCurrentUser } from "@/lib/auth/session";
 import { ConfirmEmailForm } from "@/components/auth/account-forms";
 
-export const metadata: Metadata = { robots: { index: false }, referrer: "same-origin" };
+export const generateMetadata = privatePageMetadata((d) => d.accountSecurity.confirmTitle, { referrer: "same-origin" });
 
 export default async function ConfirmEmailPage({ params, searchParams }: PageProps<"/[lang]/confirm-email">) {
   const { lang } = await params;

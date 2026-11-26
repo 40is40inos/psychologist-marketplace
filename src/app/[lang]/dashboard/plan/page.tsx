@@ -1,5 +1,5 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Check } from "lucide-react";
 import { choosePlan } from "@/actions/plans";
@@ -11,7 +11,7 @@ import { requirePsychologist } from "@/lib/workspace";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.planPage.title);
 
 export default async function PlanPage({ params }: PageProps<"/[lang]/dashboard/plan">) {
   const { lang } = await params;

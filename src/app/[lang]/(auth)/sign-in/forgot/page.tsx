@@ -1,11 +1,11 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { ForgotPasswordForm } from "@/components/auth/account-forms";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.accountSecurity.forgotTitle);
 
 export default async function ForgotPasswordPage({ params }: PageProps<"/[lang]/sign-in/forgot">) {
   const { lang } = await params;

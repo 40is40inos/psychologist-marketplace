@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -13,6 +14,8 @@ import { fill, formatShortDate } from "@/lib/format";
 import { buttonClass, inputClass } from "@/components/ui/form";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
+
+export const generateMetadata = privatePageMetadata((d) => d.admin.users.title);
 
 export default async function UsersPage({ params, searchParams }: PageProps<"/[lang]/admin/users">) {
   const { lang } = await params;

@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { Check } from "lucide-react";
 import { isLocale, type Locale } from "@/i18n/config";
@@ -19,7 +19,7 @@ import { RiskSupport } from "@/components/crisis-notice";
 import { buttonClass } from "@/components/ui/form";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.match.resultsTitle);
 
 export default async function MatchResultsPage({ params, searchParams }: PageProps<"/[lang]/match/results">) {
   const { lang } = await params;

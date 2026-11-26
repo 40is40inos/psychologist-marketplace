@@ -1,5 +1,5 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
@@ -11,7 +11,7 @@ import { SESSION_TYPES } from "@/domain/session-types";
 import { getTaxonomy } from "@/lib/taxonomy-data";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.account.tabs.settings);
 
 export default function Page({ params }: PageProps<"/[lang]/account/settings">) {
   return (

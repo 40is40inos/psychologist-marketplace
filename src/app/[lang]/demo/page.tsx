@@ -10,7 +10,18 @@ import { getDictionary } from "@/i18n/get-dictionary";
 import { fill } from "@/lib/format";
 import { buttonClass } from "@/components/ui/form";
 
-export const metadata: Metadata = { robots: { index: false } };
+/** The shared link: its title and description are what link previews show. */
+export async function generateMetadata({ params }: PageProps<"/[lang]/demo">): Promise<Metadata> {
+  const { lang } = await params;
+  if (!isLocale(lang)) return {};
+  const t = (await getDictionary(lang)).demo;
+  return {
+    // Already contains the brand, so it skips the "| brand" suffix.
+    title: { absolute: fill(t.title, { brand: brand.name }) },
+    description: t.intro,
+    robots: { index: false },
+  };
+}
 
 const ICONS: Record<DemoRole, typeof UserRound> = { client: UserRound, psychologist: Stethoscope, admin: ShieldCheck };
 

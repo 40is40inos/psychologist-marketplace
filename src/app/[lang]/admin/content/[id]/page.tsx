@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,6 +13,8 @@ import { ActionForm } from "@/components/ui/action-form";
 import { buttonClass, Field, FormAlert, inputClass, textareaClass } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
+
+export const generateMetadata = privatePageMetadata((d) => d.adminX.content.title);
 
 export default function AdminContentEditPage(props: PageProps<"/[lang]/admin/content/[id]">) {
   return (

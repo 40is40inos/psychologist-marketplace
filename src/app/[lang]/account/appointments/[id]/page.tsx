@@ -1,7 +1,7 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { displayName } from "@/lib/slug";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { CalendarPlus, CalendarClock, CheckCircle2, CreditCard, MapPin, MessageCircle, Receipt, Video } from "lucide-react";
 import { joinWindow } from "@/lib/video";
@@ -21,7 +21,7 @@ import { buttonClass, FormAlert } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.account.tabs.appointments);
 
 export default function AppointmentPage(props: PageProps<"/[lang]/account/appointments/[id]">) {
   return (

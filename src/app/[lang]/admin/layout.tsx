@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { brand } from "@/config/brand";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
 import { TabNav } from "@/components/ui/tab-nav";
@@ -8,7 +9,11 @@ export async function generateMetadata({ params }: { params: Promise<{ lang: str
   const { lang } = await params;
   if (!isLocale(lang)) return {};
   const dict = await getDictionary(lang);
-  return { title: { default: dict.admin.title, template: `%s | ${dict.admin.title}` }, robots: { index: false } };
+  // The nearest template wins, so this one repeats the brand from the root layout.
+  return {
+    title: { default: dict.admin.title, template: `%s · ${dict.admin.title} | ${brand.name}` },
+    robots: { index: false },
+  };
 }
 
 /** Shell only. Every admin page checks the admin role itself. */

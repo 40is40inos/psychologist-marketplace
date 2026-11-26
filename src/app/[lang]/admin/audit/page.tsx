@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { isLocale, type Locale } from "@/i18n/config";
@@ -7,6 +8,8 @@ import { db } from "@/lib/db";
 import { fill, formatShortDate, formatTime } from "@/lib/format";
 import { buttonClass, inputClass } from "@/components/ui/form";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
+
+export const generateMetadata = privatePageMetadata((d) => d.auditPage.title);
 
 export default async function AuditPage({ params, searchParams }: PageProps<"/[lang]/admin/audit">) {
   const { lang } = await params;

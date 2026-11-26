@@ -1,13 +1,13 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { MagicLinkConfirm } from "@/components/auth/magic-link-forms";
 
-export const metadata: Metadata = { robots: { index: false }, referrer: "same-origin" };
+export const generateMetadata = privatePageMetadata((d) => d.magicLink.confirmTitle, { referrer: "same-origin" });
 
 export default async function MagicLinkPage({ params, searchParams }: PageProps<"/[lang]/sign-in/link">) {
   const { lang } = await params;

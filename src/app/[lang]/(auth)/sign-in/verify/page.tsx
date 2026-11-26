@@ -1,12 +1,12 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale, type Locale } from "@/i18n/config";
 import { getDictionary, type Dictionary } from "@/i18n/get-dictionary";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { VerifyForm } from "@/components/security/two-factor-forms";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.twoFactor.verifyTitle);
 
 export default async function VerifyPage({ params, searchParams }: PageProps<"/[lang]/sign-in/verify">) {
   const { lang } = await params;

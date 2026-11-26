@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { isLocale, type Locale } from "@/i18n/config";
@@ -11,7 +11,7 @@ import { FormAlert } from "@/components/ui/form";
 
 // The token is in the URL: never send it on to other sites ("same-origin",
 // not "no-referrer", which makes form posts send Origin: null and fail).
-export const metadata: Metadata = { robots: { index: false }, referrer: "same-origin" };
+export const generateMetadata = privatePageMetadata((d) => d.accountSecurity.resetTitle, { referrer: "same-origin" });
 
 export default async function ResetPasswordPage({ params, searchParams }: PageProps<"/[lang]/reset-password">) {
   const { lang } = await params;

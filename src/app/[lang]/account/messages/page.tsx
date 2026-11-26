@@ -1,5 +1,5 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isLocale } from "@/i18n/config";
 import { getDictionary } from "@/i18n/get-dictionary";
@@ -7,7 +7,7 @@ import { requireRole } from "@/lib/auth/session";
 import { ConversationList } from "@/components/messages/conversation-pages";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.messages.title);
 
 export default function Page({ params }: PageProps<"/[lang]/account/messages">) {
   return (

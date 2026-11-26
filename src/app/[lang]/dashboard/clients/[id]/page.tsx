@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Lock, MessageCircle, Trash2 } from "lucide-react";
 import { addNote, deleteNote } from "@/actions/notes";
@@ -17,7 +17,7 @@ import { ActionForm } from "@/components/ui/action-form";
 import { buttonClass, textareaClass, inputClass } from "@/components/ui/form";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.clientsPage.title);
 
 export default function ClientPage(props: PageProps<"/[lang]/dashboard/clients/[id]">) {
   return (

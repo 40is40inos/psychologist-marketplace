@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { isLocale, type Locale } from "@/i18n/config";
@@ -7,6 +8,8 @@ import { db } from "@/lib/db";
 import { fill, formatShortDate } from "@/lib/format";
 import { VerificationCard } from "@/components/admin/verification-card";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
+
+export const generateMetadata = privatePageMetadata((d) => d.admin.verifications.title);
 
 export default async function VerificationsPage({ params }: PageProps<"/[lang]/admin/verifications">) {
   const { lang } = await params;

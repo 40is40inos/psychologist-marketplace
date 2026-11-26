@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { intlLocale, isLocale, type Locale } from "@/i18n/config";
@@ -6,6 +7,8 @@ import { requireRole } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { fill, formatPrice, formatShortDate, formatTime, startOfMonthInMarket } from "@/lib/format";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
+
+export const generateMetadata = privatePageMetadata((d) => d.admin.title);
 
 export default async function AdminOverviewPage({ params }: PageProps<"/[lang]/admin">) {
   const { lang } = await params;

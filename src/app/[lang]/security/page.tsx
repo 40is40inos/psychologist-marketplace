@@ -1,5 +1,5 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { ShieldCheck } from "lucide-react";
@@ -22,7 +22,7 @@ import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { PrivacyCenter } from "@/components/privacy/privacy-center";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.accountSecurity.pageTitle);
 
 export default async function SecurityPage({ params, searchParams }: PageProps<"/[lang]/security">) {
   const { lang } = await params;

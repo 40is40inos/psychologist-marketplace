@@ -1,7 +1,7 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import { displayName } from "@/lib/slug";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { brand } from "@/config/brand";
 import { isLocale } from "@/i18n/config";
@@ -12,7 +12,7 @@ import { fill, formatPrice, formatShortDate, formatTime } from "@/lib/format";
 import { PrintButton } from "@/components/account/print-button";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.account.receiptsTitle);
 
 export default function Page({ params }: PageProps<"/[lang]/account/receipts/[id]">) {
   return (

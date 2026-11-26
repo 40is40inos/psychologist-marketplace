@@ -1,3 +1,4 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -16,6 +17,8 @@ import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 
 const STATUSES = ["pending", "confirmed", "completed", "no_show", "cancelled_by_client", "cancelled_by_psychologist"] as const;
 const PAYMENTS = ["pending", "paid", "refunded", "waived"] as const;
+
+export const generateMetadata = privatePageMetadata((d) => d.adminX.bookings.title);
 
 export default async function AdminBookingsPage({ params, searchParams }: PageProps<"/[lang]/admin/bookings">) {
   const { lang } = await params;

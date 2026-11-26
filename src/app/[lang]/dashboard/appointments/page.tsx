@@ -1,6 +1,6 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
 import Link from "next/link";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { LifeBuoy, MapPin, MessageCircle, Video } from "lucide-react";
 import { appointmentAction, markPaid } from "@/actions/appointments";
@@ -17,7 +17,7 @@ import { buttonClass } from "@/components/ui/form";
 import { EmptyState, PageSkeleton } from "@/components/ui/page-skeleton";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.apptPage.title);
 
 type Tab = "requests" | "upcoming" | "past";
 

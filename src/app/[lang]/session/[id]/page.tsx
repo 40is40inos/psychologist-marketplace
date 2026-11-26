@@ -1,5 +1,5 @@
+import { privatePageMetadata } from "@/lib/page-metadata";
 import { Suspense } from "react";
-import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { isLocale } from "@/i18n/config";
@@ -12,7 +12,7 @@ import { JOIN_EARLY_MINUTES, joinVideo, joinWindow } from "@/lib/video";
 import { P2PCall } from "@/components/video/p2p-call";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 
-export const metadata: Metadata = { robots: { index: false } };
+export const generateMetadata = privatePageMetadata((d) => d.video.title);
 
 export default function SessionPage(props: PageProps<"/[lang]/session/[id]">) {
   return (
